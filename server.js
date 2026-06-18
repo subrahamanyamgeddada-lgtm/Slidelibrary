@@ -58,6 +58,38 @@ function getPptxPreview(pptxPath) {
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 
+// API Endpoint for User Authentication
+app.post('/api/login', (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) {
+    return res.status(400).json({ error: 'Email and password are required' });
+  }
+
+  const normalizedEmail = email.toLowerCase().trim();
+
+  if (normalizedEmail === 'admin@slidelibrary.com' && password === 'adminPass123!') {
+    return res.json({
+      success: true,
+      user: {
+        email: 'admin@slidelibrary.com',
+        name: 'Admin User',
+        initials: 'AU'
+      }
+    });
+  } else if (normalizedEmail === 'editor@slidelibrary.com' && password === 'editorPass123!') {
+    return res.json({
+      success: true,
+      user: {
+        email: 'editor@slidelibrary.com',
+        name: 'Editor User',
+        initials: 'EU'
+      }
+    });
+  } else {
+    return res.status(401).json({ error: 'Wrong email or password' });
+  }
+});
+
 // API Endpoint to get Slides
 app.get('/api/slides', async (req, res) => {
   const queryText = req.query.q;

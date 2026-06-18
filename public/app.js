@@ -21,6 +21,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const searchedTermDisplay = document.getElementById('searched-term-display');
   const resetSearchBtn = document.getElementById('reset-search-btn');
 
+  // Auth & Main Layout DOM Elements
+  const appTopnav = document.querySelector('.app-topnav');
+  const appLayout = document.querySelector('.app-layout');
+  const appFooter = document.querySelector('.app-footer');
+  const loginScreen = document.getElementById('login-screen');
+
   // Modal DOM Elements
   const largeViewModal = document.getElementById('large-view-modal');
   const modalCloseBtn = document.getElementById('modal-close-btn');
@@ -72,7 +78,57 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initial setup
   function init() {
     setupEventListeners();
-    updateCategoryView(activeCategory);
+    
+    // Check localStorage session on load
+    const storedUser = localStorage.getItem('slide_library_user');
+    if (storedUser) {
+      try {
+        const user = JSON.parse(storedUser);
+        updateAuthView(user);
+      } catch (err) {
+        localStorage.removeItem('slide_library_user');
+        updateAuthView(null);
+      }
+    } else {
+      updateAuthView(null);
+    }
+  }
+
+  // Update visual state and details based on authentication status
+  function updateAuthView(user) {
+    if (user) {
+      // Set user details in navigation trigger and dropdown
+      const displayAccountName = document.getElementById('account-name-display');
+      const displayAvatar = document.getElementById('avatar-display');
+      const dropdownUserName = document.getElementById('dropdown-user-name');
+      const dropdownUserEmail = document.getElementById('dropdown-user-email');
+
+      if (displayAccountName) displayAccountName.textContent = user.name;
+      if (displayAvatar) displayAvatar.textContent = user.initials;
+      if (dropdownUserName) dropdownUserName.textContent = user.name;
+      if (dropdownUserEmail) dropdownUserEmail.textContent = user.email;
+
+      // Hide login, show main content
+      if (loginScreen) loginScreen.style.display = 'none';
+      if (appTopnav) appTopnav.style.display = 'flex';
+      if (appLayout) appLayout.style.display = 'flex';
+      if (appFooter) appFooter.style.display = 'flex';
+
+      // Load correct category view data
+      updateCategoryView(activeCategory);
+    } else {
+      // Hide main content, show login screen
+      if (loginScreen) loginScreen.style.display = 'flex';
+      if (appTopnav) appTopnav.style.display = 'none';
+      if (appLayout) appLayout.style.display = 'none';
+      if (appFooter) appFooter.style.display = 'none';
+
+      // Reset login form fields
+      const loginForm = document.getElementById('login-form');
+      if (loginForm) loginForm.reset();
+      const loginErrorMsg = document.getElementById('login-error-msg');
+      if (loginErrorMsg) loginErrorMsg.style.display = 'none';
+    }
   }
 
   // Bind interaction events
@@ -302,6 +358,55 @@ document.addEventListener('DOMContentLoaded', () => {
         alert('Error updating form. Please verify network and server.');
       }
     });
+
+    // Login Form Submit handler
+    const loginForm = document.getElementById('login-form');
+    if (loginForm) {
+      loginForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const emailInput = document.getElementById('login-email');
+        const passwordInput = document.getElementById('login-password');
+        const errorMsg = document.getElementById('login-error-msg');
+        
+        if (!emailInput || !passwordInput) return;
+        
+        const email = emailInput.value.trim();
+        const password = passwordInput.value;
+        
+        if (!email || !password) return;
+        
+        try {
+          if (errorMsg) errorMsg.style.display = 'none';
+          
+          const response = await fetch('/api/login', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ email, password })
+          });
+          
+          if (!response.ok) {
+            const data = await response.json();
+            throw new Error(data.error || 'Authentication failed');
+          }
+          
+          const data = await response.json();
+          if (data.success && data.user) {
+            localStorage.setItem('slide_library_user', JSON.stringify(data.user));
+            updateAuthView(data.user);
+          } else {
+            throw new Error('Invalid response from server');
+          }
+        } catch (err) {
+          console.error('Login error:', err);
+          if (errorMsg) {
+            errorMsg.querySelector('span').textContent = err.message || 'Wrong email or password.';
+            errorMsg.style.display = 'flex';
+          }
+        }
+      });
+    }
   }
 
   // Update layout titles and suggestions
@@ -1116,14 +1221,8 @@ document.addEventListener('DOMContentLoaded', () => {
     e.stopPropagation();
     profileDropdown.style.display = 'none';
     userProfileMenu.classList.remove('open');
-    userProfileMenu.style.display = 'none';
-    headerLoginBtn.style.display = 'flex';
-  });
-
-  // Handle Log In
-  headerLoginBtn.addEventListener('click', () => {
-    headerLoginBtn.style.display = 'none';
-    userProfileMenu.style.display = 'block';
+    localStorage.removeItem('slide_library_user');
+    updateAuthView(null);
   });
 
   // Execute App

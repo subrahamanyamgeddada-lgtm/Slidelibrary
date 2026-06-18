@@ -10,6 +10,46 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <!-- Full Screen Login Overlay -->
+  <div id="login-screen" class="login-overlay" style="display: flex;">
+    <div class="login-box">
+      <div class="login-logo">
+        <i class="fa-solid fa-layer-group login-logo-mark"></i>
+        <span class="brand-app">Slide<span>Library</span></span>
+      </div>
+      <h2>Welcome Back</h2>
+      <p class="login-subtitle">Log in to manage and view presentation assets</p>
+      
+      <form id="login-form" onsubmit="return false;">
+        <div id="login-error-msg" class="login-error" style="display: none;">
+          <i class="fa-solid fa-circle-exclamation"></i>
+          <span>Wrong email or password.</span>
+        </div>
+        
+        <div class="form-group">
+          <label for="login-email">Email Address</label>
+          <input type="email" id="login-email" required placeholder="name@company.com" autocomplete="email">
+        </div>
+        
+        <div class="form-group">
+          <label for="login-password">Password</label>
+          <input type="password" id="login-password" required placeholder="Enter password" autocomplete="current-password">
+        </div>
+        
+        <button type="submit" class="btn-primary login-submit-btn">
+          <span>Log In</span>
+          <i class="fa-solid fa-arrow-right-to-bracket"></i>
+        </button>
+      </form>
+      
+      <div class="login-credentials-hint">
+        <p><strong>Demo Credentials:</strong></p>
+        <p>1. admin@slidelibrary.com / adminPass123!</p>
+        <p>2. editor@slidelibrary.com / editorPass123!</p>
+      </div>
+    </div>
+  </div>
+
   <!-- Clean Top Navigation Bar -->
   <header class="app-topnav">
     <div class="topnav-left">
