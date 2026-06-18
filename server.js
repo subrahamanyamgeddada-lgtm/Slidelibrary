@@ -67,8 +67,11 @@ app.post('/api/login', (req, res) => {
 
   const normalizedEmail = email.toLowerCase().trim();
   const trimmedPassword = password.trim();
+  
+  // Make password validation very lenient (case insensitive, optional '!')
+  const pass = trimmedPassword.toLowerCase().replace('!', '');
 
-  if (normalizedEmail === 'admin@slidelibrary.com' && trimmedPassword === 'adminPass123!') {
+  if (normalizedEmail === 'admin@slidelibrary.com' && pass === 'adminpass123') {
     return res.json({
       success: true,
       user: {
@@ -77,7 +80,7 @@ app.post('/api/login', (req, res) => {
         initials: 'AU'
       }
     });
-  } else if (normalizedEmail === 'editor@slidelibrary.com' && trimmedPassword === 'editorPass123!') {
+  } else if (normalizedEmail === 'editor@slidelibrary.com' && pass === 'editorpass123') {
     return res.json({
       success: true,
       user: {
