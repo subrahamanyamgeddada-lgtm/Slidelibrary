@@ -483,10 +483,13 @@ app.post('/api/resources', upload.array('files', 50), async (req, res) => {
         const fileId = blobResult.rows[0].id;
         const fileUrl = `/api/files/${fileId}`;
 
+        // Store the file extension in icon_class so the frontend can display the correct format
+        const iconFileExt = fileExt.replace('.', '').toUpperCase() || 'FILE';
+
         const result = await db.query(
           `INSERT INTO icons (name, keywords, icon_class, description, file_url)
            VALUES ($1, $2, $3, $4, $5) RETURNING *;`,
-          [title, keywords, 'fa-solid fa-shapes', 'Custom uploaded vector icon.', fileUrl]
+          [title, keywords, iconFileExt, 'Custom uploaded vector icon.', fileUrl]
         );
         console.log('Successfully inserted icon resource:', result.rows[0].name);
         insertedResources.push(result.rows[0]);

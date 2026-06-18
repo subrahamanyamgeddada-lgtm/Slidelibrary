@@ -914,14 +914,34 @@ document.addEventListener('DOMContentLoaded', () => {
           </div>
         `;
       } else if (category === 'icons') {
+        // Derive file format label from icon_class (stores ext like PNG, SVG, JPG) or fall back to icon_class
+        const rawFmt = (item.icon_class || '').trim();
+        // If icon_class looks like a font-awesome class use 'Icon', otherwise treat it as the format
+        const isLegacyClass = rawFmt.startsWith('fa-');
+        const formatLabel = isLegacyClass ? 'Icon' : (rawFmt || 'Icon');
+        
+        // Pick appropriate download icon
+        let dlIcon = 'fa-solid fa-download';
+        if (formatLabel === 'SVG') dlIcon = 'fa-solid fa-bezier-curve';
+        else if (['PNG','JPG','JPEG','WEBP','GIF'].includes(formatLabel)) dlIcon = 'fa-solid fa-image';
+        else if (formatLabel === 'PDF') dlIcon = 'fa-solid fa-file-pdf';
+
+        // Color code the badge by format
+        let badgeColor = '#6554C0'; // default purple
+        if (formatLabel === 'SVG') badgeColor = '#00B8D9';
+        else if (formatLabel === 'PNG') badgeColor = '#36B37E';
+        else if (['JPG','JPEG'].includes(formatLabel)) badgeColor = '#FF8B00';
+        else if (formatLabel === 'WEBP') badgeColor = '#6554C0';
+        else if (formatLabel === 'PDF') badgeColor = '#FF5630';
+
         // Render Icon Card (natural square ratio)
         card.innerHTML = cardHTML + `
           <div class="card-media icon-box">
-            <img src="${item.file_url}" alt="${item.name}" onerror="this.src='https://placehold.co/200x200/f4f5f7/5e6c84?text=Icon'">
+            <img src="${item.file_url}" alt="${item.name}" onerror="this.src='https://placehold.co/200x200/f4f5f7/5e6c84?text=${formatLabel}'">
           </div>
           <div class="card-body">
             <div class="card-meta">
-              <span class="badge type">Vector Icon</span>
+              <span class="badge type" style="background:${badgeColor};color:#fff;">${formatLabel}</span>
             </div>
             <h4 class="card-title">${item.name}</h4>
             <div class="card-tags">
@@ -930,8 +950,8 @@ document.addEventListener('DOMContentLoaded', () => {
           </div>
           <div class="card-footer">
             <a href="${item.file_url}" class="btn-primary secondary" download>
-              <i class="fa-solid fa-download"></i>
-              <span>Download SVG</span>
+              <i class="${dlIcon}"></i>
+              <span>Download ${formatLabel}</span>
             </a>
           </div>
         `;
