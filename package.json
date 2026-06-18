@@ -4,7 +4,7 @@
   "description": "Searchable Library of PowerPoint Slides with PostgreSQL FTS",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
+    "start": "node setup-db.js && node server.js",
     "setup-db": "node setup-db.js"
   },
   "dependencies": {

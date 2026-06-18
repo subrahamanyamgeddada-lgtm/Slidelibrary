@@ -8,7 +8,7 @@ async function main() {
 
   // 1. Create database if it does not exist
   console.log('Connecting to default postgres database to verify/create database "slide_library"...');
-  let client = new Client({ connectionString: defaultDbUrl });
+  let client = new Client({ connectionString: defaultDbUrl, ssl: { rejectUnauthorized: false } });
   try {
     await client.connect();
     const res = await client.query("SELECT 1 FROM pg_database WHERE datname = 'slide_library'");
@@ -26,7 +26,7 @@ async function main() {
 
   // 2. Connect to slide_library database
   console.log('Connecting to "slide_library" database to build schema and seed...');
-  client = new Client({ connectionString: dbUrl });
+  client = new Client({ connectionString: dbUrl, ssl: { rejectUnauthorized: false } });
   try {
     await client.connect();
 
