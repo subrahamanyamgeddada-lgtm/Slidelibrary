@@ -827,6 +827,64 @@ app.post('/api/resources/bulk-move', async (req, res) => {
   }
 });
 
-app.listen(port, () => {
-  console.log(`Server is running at http://localhost:${port}`);
+// Auto-create all required tables on startup — no manual /api/setup needed
+async function initDatabase() {
+  try {
+    // file_blobs: stores all uploaded files as binary — survives Render deployments
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS file_blobs (
+        id SERIAL PRIMARY KEY,
+        filename VARCHAR(512) NOT NULL,
+        mimetype VARCHAR(128) NOT NULL,
+        data BYTEA NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS slides (
+        id SERIAL PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        state VARCHAR(100) NOT NULL,
+        slide_type VARCHAR(100) NOT NULL,
+        keywords TEXT NOT NULL,
+        description TEXT NOT NULL,
+        preview_image_url VARCHAR(255) NOT NULL,
+        pptx_file_url VARCHAR(255) NOT NULL
+      );
+    `);
+
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS icons (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        keywords TEXT NOT NULL,
+        icon_class VARCHAR(100) NOT NULL,
+        description TEXT NOT NULL,
+        file_url VARCHAR(255) NOT NULL
+      );
+    `);
+
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS scientific_images (
+        id SERIAL PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        keywords TEXT NOT NULL,
+        description TEXT NOT NULL,
+        preview_image_url VARCHAR(255) NOT NULL,
+        file_url VARCHAR(255) NOT NULL
+      );
+    `);
+
+    console.log('✅ All database tables ready.');
+  } catch (err) {
+    console.error('❌ Failed to initialize database tables:', err.message);
+  }
+}
+
+// Start server after DB tables are ready
+initDatabase().then(() => {
+  app.listen(port, () => {
+    console.log(`Server is running at http://localhost:${port}`);
+  });
 });
