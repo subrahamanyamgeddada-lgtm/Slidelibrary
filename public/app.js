@@ -59,6 +59,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // Sidebar category navigation
     sidebarMenuItems.forEach(item => {
       item.addEventListener('click', (e) => {
+        // Stop active tab change if quick add button was clicked
+        if (e.target.closest('.quick-add-sidebar-btn')) {
+          return;
+        }
         const menuItem = e.currentTarget;
         const category = menuItem.getAttribute('data-category');
         
@@ -69,6 +73,25 @@ document.addEventListener('DOMContentLoaded', () => {
         globalSearch.value = '';
         updateClearButtonVisibility();
         updateCategoryView(category);
+      });
+    });
+
+    // Sidebar quick-add buttons
+    document.querySelectorAll('.quick-add-sidebar-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const targetCategory = e.currentTarget.getAttribute('data-quick-category');
+        
+        resetAddResourceForm();
+        
+        // Pre-select the resource type dropdown
+        resourceType.value = targetCategory;
+        resourceType.dispatchEvent(new Event('change'));
+        
+        addResourceModal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
       });
     });
 
@@ -408,39 +431,77 @@ document.addEventListener('DOMContentLoaded', () => {
   // File Upload Elements
   const fileDropzone = document.getElementById('file-dropzone');
   const fileInput = document.getElementById('file-input');
-  const fileSelectedInfo = document.getElementById('file-selected-info');
-  const selectedFilename = document.getElementById('selected-filename');
-  const removeFileBtn = document.getElementById('remove-file-btn');
+  const fileSelectedList = document.getElementById('file-selected-list');
   const dropzoneIcon = fileDropzone.querySelector('.dropzone-icon');
   const dropzonePrompt = document.getElementById('dropzone-prompt');
 
   let selectedKeywords = [];
-  let selectedFile = null;
+  let selectedFiles = [];
 
-  // Handle file selection
-  function handleFileSelected(file) {
-    if (!file) return;
-    selectedFile = file;
-    selectedFilename.textContent = file.name;
-    
-    // Update UI elements
+  // Handle files selection
+  function handleFilesSelected(filesList) {
+    if (!filesList || filesList.length === 0) return;
+    for (let i = 0; i < filesList.length; i++) {
+      const file = filesList[i];
+      if (!selectedFiles.some(f => f.name === file.name && f.size === file.size)) {
+        selectedFiles.push(file);
+      }
+    }
+    renderSelectedFilesList();
+    fileInput.setCustomValidity('');
+  }
+
+  // Render list of selected files
+  function renderSelectedFilesList() {
+    if (selectedFiles.length === 0) {
+      dropzoneIcon.style.display = 'block';
+      dropzonePrompt.style.display = 'block';
+      fileSelectedList.style.display = 'none';
+      fileSelectedList.innerHTML = '';
+      return;
+    }
     dropzoneIcon.style.display = 'none';
     dropzonePrompt.style.display = 'none';
-    fileSelectedInfo.style.display = 'flex';
-    
-    // Clear custom validation message if set
-    fileInput.setCustomValidity('');
+    fileSelectedList.style.display = 'flex';
+    fileSelectedList.innerHTML = '';
+
+    selectedFiles.forEach((file, index) => {
+      const item = document.createElement('div');
+      item.className = 'file-selected-item';
+      item.innerHTML = `
+        <i class="fa-solid fa-file-circle-check"></i>
+        <span class="file-name">${file.name}</span>
+        <button type="button" class="remove-file-btn" data-index="${index}" title="Remove file">
+          <i class="fa-solid fa-trash-can"></i>
+        </button>
+      `;
+      item.querySelector('.remove-file-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        handleFileRemovedAtIndex(index);
+      });
+      fileSelectedList.appendChild(item);
+    });
+  }
+
+  // Handle individual file removal
+  function handleFileRemovedAtIndex(index) {
+    selectedFiles.splice(index, 1);
+    renderSelectedFilesList();
+    if (selectedFiles.length === 0) {
+      fileInput.value = '';
+    }
   }
 
   // Handle file removal
   function handleFileRemoved() {
-    selectedFile = null;
+    selectedFiles = [];
     fileInput.value = '';
-    
-    // Update UI elements
     dropzoneIcon.style.display = 'block';
     dropzonePrompt.style.display = 'block';
-    fileSelectedInfo.style.display = 'none';
+    if (fileSelectedList) {
+      fileSelectedList.style.display = 'none';
+      fileSelectedList.innerHTML = '';
+    }
   }
 
   // File Dropzone Drag & Drop events
@@ -464,13 +525,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const dt = e.dataTransfer;
     const files = dt.files;
     if (files.length > 0) {
-      handleFileSelected(files[0]);
+      handleFilesSelected(files);
     }
   });
 
   // Clicking on dropzone opens browser file selector
   fileDropzone.addEventListener('click', (e) => {
-    if (e.target.closest('#remove-file-btn')) {
+    if (e.target.closest('.remove-file-btn')) {
       return;
     }
     fileInput.click();
@@ -479,14 +540,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // File input change event
   fileInput.addEventListener('change', () => {
     if (fileInput.files.length > 0) {
-      handleFileSelected(fileInput.files[0]);
+      handleFilesSelected(fileInput.files);
     }
-  });
-
-  // Remove file button
-  removeFileBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    handleFileRemoved();
   });
 
   // Reset form inputs and selections
@@ -624,8 +679,8 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    if (!selectedFile) {
-      fileInput.setCustomValidity('Please upload or drop a file.');
+    if (selectedFiles.length === 0) {
+      fileInput.setCustomValidity('Please upload or drop at least one file.');
       addResourceForm.reportValidity();
       return;
     }
@@ -635,7 +690,11 @@ document.addEventListener('DOMContentLoaded', () => {
     formData.append('type', type);
     formData.append('title', resourceTitle.value.trim());
     formData.append('keywords', resourceKeywordsInput.value);
-    formData.append('file', selectedFile);
+    
+    // Append each selected file
+    selectedFiles.forEach(file => {
+      formData.append('files', file);
+    });
 
     try {
       const response = await fetch('/api/resources', {

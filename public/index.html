@@ -77,24 +77,49 @@
     <aside class="app-sidebar">
       <div class="sidebar-menu">
         <button class="menu-item active" data-category="templates">
-          <i class="fa-solid fa-desktop icon-slides"></i>
-          <span>Templates & Slides</span>
+          <span class="menu-item-label">
+            <i class="fa-solid fa-desktop icon-slides"></i>
+            <span>Templates & Slides</span>
+          </span>
+          <span class="quick-add-sidebar-btn" data-quick-category="templates" title="Quick Add to Templates & Slides">
+            <i class="fa-solid fa-plus"></i>
+          </span>
         </button>
         <button class="menu-item" data-category="charts">
-          <i class="fa-solid fa-chart-pie icon-charts"></i>
-          <span>Charts & Diagrams</span>
+          <span class="menu-item-label">
+            <i class="fa-solid fa-chart-pie icon-charts"></i>
+            <span>Charts & Diagrams</span>
+          </span>
+          <span class="quick-add-sidebar-btn" data-quick-category="charts" title="Quick Add to Charts & Diagrams">
+            <i class="fa-solid fa-plus"></i>
+          </span>
         </button>
         <button class="menu-item" data-category="maps">
-          <i class="fa-solid fa-map-location-dot icon-maps"></i>
-          <span>Maps & Flags</span>
+          <span class="menu-item-label">
+            <i class="fa-solid fa-map-location-dot icon-maps"></i>
+            <span>Maps & Flags</span>
+          </span>
+          <span class="quick-add-sidebar-btn" data-quick-category="maps" title="Quick Add to Maps & Flags">
+            <i class="fa-solid fa-plus"></i>
+          </span>
         </button>
         <button class="menu-item" data-category="icons">
-          <i class="fa-solid fa-circle-nodes icon-icons"></i>
-          <span>Vector Icons</span>
+          <span class="menu-item-label">
+            <i class="fa-solid fa-circle-nodes icon-icons"></i>
+            <span>Vector Icons</span>
+          </span>
+          <span class="quick-add-sidebar-btn" data-quick-category="icons" title="Quick Add to Vector Icons">
+            <i class="fa-solid fa-plus"></i>
+          </span>
         </button>
         <button class="menu-item" data-category="scientific">
-          <i class="fa-solid fa-flask icon-scientific"></i>
-          <span>Scientific Diagrams</span>
+          <span class="menu-item-label">
+            <i class="fa-solid fa-flask icon-scientific"></i>
+            <span>Scientific Diagrams</span>
+          </span>
+          <span class="quick-add-sidebar-btn" data-quick-category="scientific" title="Quick Add to Scientific Diagrams">
+            <i class="fa-solid fa-plus"></i>
+          </span>
         </button>
       </div>
 
@@ -237,13 +262,9 @@
             <div class="file-dropzone" id="file-dropzone">
               <i class="fa-solid fa-cloud-arrow-up dropzone-icon"></i>
               <p class="dropzone-text" id="dropzone-prompt">Drag & drop your file, or <span class="browse-link">browse files</span></p>
-              <input type="file" id="file-input" name="file" required style="display: none;" accept=".pptx,.svg,.png,.jpg,.jpeg">
-              <div id="file-selected-info" class="file-selected-info" style="display: none;">
-                <i class="fa-solid fa-file-circle-check"></i>
-                <span id="selected-filename">filename.pptx</span>
-                <button type="button" id="remove-file-btn" class="remove-file-btn" title="Remove file">
-                  <i class="fa-solid fa-trash-can"></i>
-                </button>
+              <input type="file" id="file-input" name="files" required style="display: none;" accept=".pptx,.svg,.png,.jpg,.jpeg" multiple>
+              <div id="file-selected-list" class="file-selected-list" style="display: none;">
+                <!-- Dynamic list of selected files -->
               </div>
             </div>
           </div>

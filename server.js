@@ -157,88 +157,91 @@ app.get('/api/setup', async (req, res) => {
 });
 
 // API Endpoint to add new resources to tables dynamically with Multer file upload support
-app.post('/api/resources', upload.single('file'), async (req, res) => {
+app.post('/api/resources', upload.array('files', 50), async (req, res) => {
   const { type, title, keywords } = req.body;
-  const file = req.file;
+  const files = req.files;
   
-  if (!type || !title || !keywords || !file) {
-    return res.status(400).json({ error: 'Missing required parameters (type, title, keywords, or file)' });
+  if (!type || !title || !keywords || !files || files.length === 0) {
+    return res.status(400).json({ error: 'Missing required parameters (type, title, keywords, or files)' });
   }
 
-  // Set file URL path relative to server public root
-  const relativeFileUrl = `/storage/uploads/${file.filename}`;
+  const insertedResources = [];
 
   try {
-    if (type === 'templates' || type === 'charts' || type === 'maps') {
-      let slideType = 'title';
-      let previewUrl = '/storage/previews/california_map_preview.png'; // Default slide preview
+    for (const file of files) {
+      // Set file URL path relative to server public root
+      const relativeFileUrl = `/storage/uploads/${file.filename}`;
 
-      if (type === 'charts') {
-        slideType = '3-pointer';
-        previewUrl = '/storage/previews/financial_performance_preview.png';
-      } else if (type === 'maps') {
-        slideType = 'map';
-        previewUrl = '/storage/previews/california_map_preview.png';
+      if (type === 'templates' || type === 'charts' || type === 'maps') {
+        let slideType = 'title';
+        let previewUrl = '/storage/previews/california_map_preview.png'; // Default slide preview
+
+        if (type === 'charts') {
+          slideType = '3-pointer';
+          previewUrl = '/storage/previews/financial_performance_preview.png';
+        } else if (type === 'maps') {
+          slideType = 'map';
+          previewUrl = '/storage/previews/california_map_preview.png';
+        }
+
+        const query = `
+          INSERT INTO slides (title, state, slide_type, keywords, description, preview_image_url, pptx_file_url)
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
+          RETURNING *;
+        `;
+        const values = [
+          title,
+          'National', // Default State since removed from form
+          slideType,
+          keywords,
+          'Custom uploaded PowerPoint presentation slide template.', // Default description text
+          previewUrl,
+          relativeFileUrl // Local path of uploaded slide file
+        ];
+
+        const result = await db.query(query, values);
+        console.log('Successfully inserted slide resource:', result.rows[0].title);
+        insertedResources.push(result.rows[0]);
+
+      } else if (type === 'icons') {
+        const query = `
+          INSERT INTO icons (name, keywords, icon_class, description, file_url)
+          VALUES ($1, $2, $3, $4, $5)
+          RETURNING *;
+        `;
+        const values = [
+          title,
+          keywords,
+          'fa-solid fa-shapes',
+          'Custom uploaded vector icon.',
+          relativeFileUrl // Local path of uploaded SVG icon file
+        ];
+
+        const result = await db.query(query, values);
+        console.log('Successfully inserted icon resource:', result.rows[0].name);
+        insertedResources.push(result.rows[0]);
+
+      } else if (type === 'scientific') {
+        const query = `
+          INSERT INTO scientific_images (title, keywords, description, preview_image_url, file_url)
+          VALUES ($1, $2, $3, $4, $5)
+          RETURNING *;
+        `;
+        const values = [
+          title,
+          keywords,
+          'Custom uploaded scientific diagram.',
+          relativeFileUrl, // Uploaded PNG/JPG image file is used for both preview
+          relativeFileUrl  // and download URLs
+        ];
+
+        const result = await db.query(query, values);
+        console.log('Successfully inserted scientific resource:', result.rows[0].title);
+        insertedResources.push(result.rows[0]);
       }
-
-      const query = `
-        INSERT INTO slides (title, state, slide_type, keywords, description, preview_image_url, pptx_file_url)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
-        RETURNING *;
-      `;
-      const values = [
-        title,
-        'National', // Default State since removed from form
-        slideType,
-        keywords,
-        'Custom uploaded PowerPoint presentation slide template.', // Default description text
-        previewUrl,
-        relativeFileUrl // Local path of uploaded slide file
-      ];
-
-      const result = await db.query(query, values);
-      console.log('Successfully inserted slide resource:', result.rows[0].title);
-      return res.status(201).json({ success: true, data: result.rows[0] });
-
-    } else if (type === 'icons') {
-      const query = `
-        INSERT INTO icons (name, keywords, icon_class, description, file_url)
-        VALUES ($1, $2, $3, $4, $5)
-        RETURNING *;
-      `;
-      const values = [
-        title,
-        keywords,
-        'fa-solid fa-shapes',
-        'Custom uploaded vector icon.',
-        relativeFileUrl // Local path of uploaded SVG icon file
-      ];
-
-      const result = await db.query(query, values);
-      console.log('Successfully inserted icon resource:', result.rows[0].name);
-      return res.status(201).json({ success: true, data: result.rows[0] });
-
-    } else if (type === 'scientific') {
-      const query = `
-        INSERT INTO scientific_images (title, keywords, description, preview_image_url, file_url)
-        VALUES ($1, $2, $3, $4, $5)
-        RETURNING *;
-      `;
-      const values = [
-        title,
-        keywords,
-        'Custom uploaded scientific diagram.',
-        relativeFileUrl, // Uploaded PNG/JPG image file is used for both preview
-        relativeFileUrl  // and download URLs
-      ];
-
-      const result = await db.query(query, values);
-      console.log('Successfully inserted scientific resource:', result.rows[0].title);
-      return res.status(201).json({ success: true, data: result.rows[0] });
-
-    } else {
-      return res.status(400).json({ error: 'Invalid resource type' });
     }
+
+    return res.status(201).json({ success: true, data: insertedResources });
   } catch (err) {
     console.error('Error adding new resource to database:', err);
     res.status(500).json({ error: 'Database write operation failed' });
