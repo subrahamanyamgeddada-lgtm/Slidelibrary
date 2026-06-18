@@ -9,28 +9,14 @@ require('dotenv').config();
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Setup directories for uploads
-const storageDir = path.join(__dirname, 'public', 'storage', 'uploads');
-if (!fs.existsSync(storageDir)) {
-  fs.mkdirSync(storageDir, { recursive: true });
-}
+// Use memory storage — files are saved into PostgreSQL as BYTEAs, NOT the disk.
+// This ensures uploaded resources survive all Render deployments permanently.
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
 
-// Multer Disk Storage Configuration
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, storageDir);
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
-  }
-});
-const upload = multer({ storage: storage });
-
-// Helper to extract thumbnail from PPTX using adm-zip
-function getPptxPreview(pptxPath) {
+// Helper to extract thumbnail from PPTX buffer using adm-zip (in-memory, no disk)
+function getPptxPreviewBuffer(pptxBuffer) {
   try {
-    const zip = new AdmZip(pptxPath);
+    const zip = new AdmZip(pptxBuffer);
     const zipEntries = zip.getEntries();
     
     const thumbnailEntry = zipEntries.find(entry => 
@@ -41,12 +27,9 @@ function getPptxPreview(pptxPath) {
     
     if (thumbnailEntry) {
       const ext = path.extname(thumbnailEntry.entryName).toLowerCase();
-      const previewFilename = `preview-${Date.now()}-${Math.round(Math.random() * 1E9)}${ext}`;
-      const previewPath = path.join(__dirname, 'public', 'storage', 'uploads', previewFilename);
-      
-      const buffer = zip.readFile(thumbnailEntry);
-      fs.writeFileSync(previewPath, buffer);
-      return `/storage/uploads/${previewFilename}`;
+      const mimeType = ext === '.png' ? 'image/png' : 'image/jpeg';
+      const thumbBuffer = thumbnailEntry.getData();
+      return { buffer: thumbBuffer, mimeType };
     }
   } catch (err) {
     console.error('Error extracting PPTX thumbnail:', err.message);
@@ -57,6 +40,36 @@ function getPptxPreview(pptxPath) {
 // Serve static assets from the 'public' directory
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
+
+// Serve uploaded files from PostgreSQL (database-stored, survives all Render deployments)
+app.get('/api/files/:id', async (req, res) => {
+  try {
+    const result = await db.query('SELECT filename, mimetype, data FROM file_blobs WHERE id = $1', [req.params.id]);
+    if (result.rowCount === 0) return res.status(404).send('File not found');
+    const { filename, mimetype, data } = result.rows[0];
+    res.set('Content-Type', mimetype);
+    res.set('Content-Disposition', `attachment; filename="${encodeURIComponent(filename)}"`);
+    res.send(data);
+  } catch (err) {
+    console.error('Error serving file from DB:', err);
+    res.status(500).send('Error retrieving file');
+  }
+});
+
+// Serve preview images from PostgreSQL
+app.get('/api/previews/:id', async (req, res) => {
+  try {
+    const result = await db.query('SELECT filename, mimetype, data FROM file_blobs WHERE id = $1', [req.params.id]);
+    if (result.rowCount === 0) return res.status(404).send('Preview not found');
+    const { mimetype, data } = result.rows[0];
+    res.set('Content-Type', mimetype || 'image/jpeg');
+    res.set('Cache-Control', 'public, max-age=86400');
+    res.send(data);
+  } catch (err) {
+    console.error('Error serving preview from DB:', err);
+    res.status(500).send('Error retrieving preview');
+  }
+});
 
 // API Endpoint for User Authentication
 app.post('/api/login', (req, res) => {
@@ -232,6 +245,18 @@ app.get('/api/search', async (req, res) => {
 app.get('/api/setup', async (req, res) => {
   const forceReseed = req.query.force === 'true';
   try {
+    // Create file_blobs table — stores all uploaded files as binary data in PostgreSQL
+    // This is the key to making uploads survive all Render deployments permanently
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS file_blobs (
+        id SERIAL PRIMARY KEY,
+        filename VARCHAR(512) NOT NULL,
+        mimetype VARCHAR(128) NOT NULL,
+        data BYTEA NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+
     // Create slides table
     await db.query(`
       CREATE TABLE IF NOT EXISTS slides (
@@ -395,11 +420,11 @@ app.get('/api/setup', async (req, res) => {
   }
 });
 
-// API Endpoint to add new resources to tables dynamically with Multer file upload support
+// API Endpoint to add new resources — files stored in PostgreSQL, not on disk
 app.post('/api/resources', upload.array('files', 50), async (req, res) => {
   const { type, title, keywords } = req.body;
   const files = req.files;
-  
+
   if (!type || !title || !keywords || !files || files.length === 0) {
     return res.status(400).json({ error: 'Missing required parameters (type, title, keywords, or files)' });
   }
@@ -408,94 +433,79 @@ app.post('/api/resources', upload.array('files', 50), async (req, res) => {
 
   try {
     for (const file of files) {
-      // Set file URL path relative to server public root
-      const relativeFileUrl = `/storage/uploads/${file.filename}`;
+      const fileExt = path.extname(file.originalname).toLowerCase();
+      const mimeType = file.mimetype || 'application/octet-stream';
 
       if (type === 'templates' || type === 'charts' || type === 'maps') {
-        const fileExt = path.extname(file.originalname).toLowerCase();
+        // Block image uploads to slide groups
         if (['.png', '.jpg', '.jpeg', '.svg'].includes(fileExt)) {
-          // Clean up physical file from disk
-          try {
-            fs.unlinkSync(file.path);
-          } catch (err) {
-            console.error('Error deleting invalid format file:', err.message);
-          }
           return res.status(400).json({ error: 'You cannot upload images in this group. Please change the format to PPTX and then upload.' });
         }
 
-        let slideType = 'title';
-        let previewUrl = '/storage/previews/california_map_preview.png'; // Default slide preview
+        // Save the main PPTX file into file_blobs
+        const blobResult = await db.query(
+          'INSERT INTO file_blobs (filename, mimetype, data) VALUES ($1, $2, $3) RETURNING id',
+          [file.originalname, mimeType, file.buffer]
+        );
+        const fileId = blobResult.rows[0].id;
+        const fileUrl = `/api/files/${fileId}`;
 
-        if (type === 'charts') {
-          slideType = '3-pointer';
-          previewUrl = '/storage/previews/financial_performance_preview.png';
-        } else if (type === 'maps') {
-          slideType = 'map';
-          previewUrl = '/storage/previews/california_map_preview.png';
-        }
-
-        // Try extracting preview from PPTX or use file directly if it is an image
+        // Try to extract thumbnail from PPTX buffer and store it too
+        let previewUrl = 'https://placehold.co/600x338/1e293b/94a3b8?text=Slide+Preview';
         if (fileExt === '.pptx') {
-          const extractedPreview = getPptxPreview(file.path);
-          if (extractedPreview) {
-            previewUrl = extractedPreview;
+          const preview = getPptxPreviewBuffer(file.buffer);
+          if (preview) {
+            const previewBlob = await db.query(
+              'INSERT INTO file_blobs (filename, mimetype, data) VALUES ($1, $2, $3) RETURNING id',
+              [`preview-${file.originalname}.jpg`, preview.mimeType, preview.buffer]
+            );
+            previewUrl = `/api/previews/${previewBlob.rows[0].id}`;
           }
-        } else if (['.png', '.jpg', '.jpeg', '.svg'].includes(fileExt)) {
-          previewUrl = relativeFileUrl;
         }
 
-        const query = `
-          INSERT INTO slides (title, state, slide_type, keywords, description, preview_image_url, pptx_file_url)
-          VALUES ($1, $2, $3, $4, $5, $6, $7)
-          RETURNING *;
-        `;
-        const values = [
-          title,
-          'National', // Default State since removed from form
-          slideType,
-          keywords,
-          'Custom uploaded PowerPoint presentation slide template.', // Default description text
-          previewUrl,
-          relativeFileUrl // Local path of uploaded slide file
-        ];
+        let slideType = 'title';
+        if (type === 'charts') slideType = '3-pointer';
+        else if (type === 'maps') slideType = 'map';
 
-        const result = await db.query(query, values);
+        const result = await db.query(
+          `INSERT INTO slides (title, state, slide_type, keywords, description, preview_image_url, pptx_file_url)
+           VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *;`,
+          [title, 'National', slideType, keywords, 'Custom uploaded PowerPoint presentation slide template.', previewUrl, fileUrl]
+        );
         console.log('Successfully inserted slide resource:', result.rows[0].title);
         insertedResources.push(result.rows[0]);
 
       } else if (type === 'icons') {
-        const query = `
-          INSERT INTO icons (name, keywords, icon_class, description, file_url)
-          VALUES ($1, $2, $3, $4, $5)
-          RETURNING *;
-        `;
-        const values = [
-          title,
-          keywords,
-          'fa-solid fa-shapes',
-          'Custom uploaded vector icon.',
-          relativeFileUrl // Local path of uploaded SVG icon file
-        ];
+        const blobResult = await db.query(
+          'INSERT INTO file_blobs (filename, mimetype, data) VALUES ($1, $2, $3) RETURNING id',
+          [file.originalname, mimeType, file.buffer]
+        );
+        const fileId = blobResult.rows[0].id;
+        const fileUrl = `/api/files/${fileId}`;
 
-        const result = await db.query(query, values);
+        const result = await db.query(
+          `INSERT INTO icons (name, keywords, icon_class, description, file_url)
+           VALUES ($1, $2, $3, $4, $5) RETURNING *;`,
+          [title, keywords, 'fa-solid fa-shapes', 'Custom uploaded vector icon.', fileUrl]
+        );
         console.log('Successfully inserted icon resource:', result.rows[0].name);
         insertedResources.push(result.rows[0]);
 
       } else if (type === 'scientific') {
-        const query = `
-          INSERT INTO scientific_images (title, keywords, description, preview_image_url, file_url)
-          VALUES ($1, $2, $3, $4, $5)
-          RETURNING *;
-        `;
-        const values = [
-          title,
-          keywords,
-          'Custom uploaded scientific diagram.',
-          relativeFileUrl, // Uploaded PNG/JPG image file is used for both preview
-          relativeFileUrl  // and download URLs
-        ];
+        // Store the image file in file_blobs
+        const blobResult = await db.query(
+          'INSERT INTO file_blobs (filename, mimetype, data) VALUES ($1, $2, $3) RETURNING id',
+          [file.originalname, mimeType, file.buffer]
+        );
+        const fileId = blobResult.rows[0].id;
+        const fileUrl = `/api/files/${fileId}`;
+        const previewUrl = `/api/previews/${fileId}`;
 
-        const result = await db.query(query, values);
+        const result = await db.query(
+          `INSERT INTO scientific_images (title, keywords, description, preview_image_url, file_url)
+           VALUES ($1, $2, $3, $4, $5) RETURNING *;`,
+          [title, keywords, 'Custom uploaded scientific diagram.', previewUrl, fileUrl]
+        );
         console.log('Successfully inserted scientific resource:', result.rows[0].title);
         insertedResources.push(result.rows[0]);
       }
