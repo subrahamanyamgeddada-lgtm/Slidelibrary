@@ -779,6 +779,9 @@ document.addEventListener('DOMContentLoaded', () => {
             <i class="fa-solid fa-ellipsis-vertical"></i>
           </button>
           <div class="card-dropdown-menu" style="display: none;">
+            <button class="card-dropdown-item edit-item-btn">
+              <i class="fa-solid fa-pen"></i> Edit
+            </button>
             <button class="card-dropdown-item delete-item-btn">
               <i class="fa-solid fa-trash-can"></i> Delete
             </button>
@@ -802,7 +805,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.target.closest('.card-actions-menu') || e.target.closest('.card-checkbox-wrapper')) return;
         currentOpenItem = item;
         currentOpenCategory = frontendCategory;
-        openLargeView(item, frontendCategory);
+        openLargeView(frontendCategory, item);
       });
 
       // Three-dot menu
@@ -813,6 +816,21 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('.card-dropdown-menu').forEach(m => { if (m !== dropdownMenu) m.style.display = 'none'; });
         dropdownMenu.style.display = dropdownMenu.style.display === 'block' ? 'none' : 'block';
       });
+
+      // Edit from menu
+      const editBtn = card.querySelector('.edit-item-btn');
+      if (editBtn) {
+        editBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          dropdownMenu.style.display = 'none';
+          
+          // Set currentOpenItem & currentOpenCategory
+          currentOpenItem = item;
+          currentOpenCategory = frontendCategory;
+          
+          openEditResourceModal();
+        });
+      }
 
       // Delete from menu
       const deleteBtn = card.querySelector('.delete-item-btn');
