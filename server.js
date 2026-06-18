@@ -66,8 +66,9 @@ app.post('/api/login', (req, res) => {
   }
 
   const normalizedEmail = email.toLowerCase().trim();
+  const trimmedPassword = password.trim();
 
-  if (normalizedEmail === 'admin@slidelibrary.com' && password === 'adminPass123!') {
+  if (normalizedEmail === 'admin@slidelibrary.com' && trimmedPassword === 'adminPass123!') {
     return res.json({
       success: true,
       user: {
@@ -76,7 +77,7 @@ app.post('/api/login', (req, res) => {
         initials: 'AU'
       }
     });
-  } else if (normalizedEmail === 'editor@slidelibrary.com' && password === 'editorPass123!') {
+  } else if (normalizedEmail === 'editor@slidelibrary.com' && trimmedPassword === 'editorPass123!') {
     return res.json({
       success: true,
       user: {
