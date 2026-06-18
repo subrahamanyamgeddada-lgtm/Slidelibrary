@@ -5,6 +5,8 @@ document.addEventListener('DOMContentLoaded', () => {
   let activeCategory = 'templates'; // Default active category
   let searchQuery = '';
   let debounceTimer;
+  let currentOpenItem = null;
+  let currentOpenCategory = null;
 
   // DOM Elements
   const globalSearch = document.getElementById('global-search');
@@ -29,6 +31,25 @@ document.addEventListener('DOMContentLoaded', () => {
   const modalTags = document.getElementById('modal-tags');
   const modalDownloadBtn = document.getElementById('modal-download-btn');
   const modalDownloadText = document.getElementById('modal-download-text');
+  const modalEditBtn = document.getElementById('modal-edit-btn');
+  const modalDeleteBtn = document.getElementById('modal-delete-btn');
+
+  // Edit Modal DOM Elements
+  const editResourceModal = document.getElementById('edit-resource-modal');
+  const closeEditResourceBtn = document.getElementById('close-edit-resource-btn');
+  const cancelEditResourceBtn = document.getElementById('cancel-edit-resource-btn');
+  const editResourceForm = document.getElementById('edit-resource-form');
+  const editResourceIdInput = document.getElementById('edit-resource-id');
+  const editResourceOldTypeInput = document.getElementById('edit-resource-old-type');
+  const editResourceTypeSelect = document.getElementById('edit-resource-type');
+  const editTitleLabel = document.getElementById('edit-title-label');
+  const editResourceTitleInput = document.getElementById('edit-resource-title');
+  const editKeywordPickerContainer = document.getElementById('edit-keyword-picker-container');
+  const editResourceKeywordsInput = document.getElementById('edit-resource-keywords');
+  const editCustomKeywordInput = document.getElementById('edit-custom-keyword-input');
+  const editAddCustomKeywordBtn = document.getElementById('edit-add-custom-keyword-btn');
+
+  let editSelectedKeywords = [];
 
   // Suggestion Chips by category
   const suggestionData = {
@@ -135,8 +156,150 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Modal Close via Escape key
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && largeViewModal.style.display === 'flex') {
-        closeLargeView();
+      if (e.key === 'Escape') {
+        if (largeViewModal.style.display === 'flex') {
+          closeLargeView();
+        } else if (editResourceModal.style.display === 'flex') {
+          closeEditResourceModal();
+        }
+      }
+    });
+
+    // Edit & Delete button handlers in Lightbox
+    modalEditBtn.addEventListener('click', openEditResourceModal);
+    modalDeleteBtn.addEventListener('click', async () => {
+      if (!currentOpenItem || !currentOpenCategory) return;
+      
+      const confirmDelete = confirm(`Are you sure you want to delete "${currentOpenItem.title || currentOpenItem.name}"? This action cannot be undone.`);
+      if (!confirmDelete) return;
+
+      try {
+        const response = await fetch(`/api/resources/${currentOpenCategory}/${currentOpenItem.id}`, {
+          method: 'DELETE'
+        });
+
+        if (!response.ok) {
+          throw new Error('Delete operation failed');
+        }
+
+        const resJson = await response.json();
+        if (resJson.success) {
+          closeLargeView();
+          loadData(activeCategory, searchQuery);
+        } else {
+          alert('Could not delete resource.');
+        }
+      } catch (err) {
+        console.error('Delete error:', err);
+        alert('Error deleting resource. Please try again.');
+      }
+    });
+
+    // Edit Modal Close & Cancel handlers
+    closeEditResourceBtn.addEventListener('click', closeEditResourceModal);
+    cancelEditResourceBtn.addEventListener('click', closeEditResourceModal);
+    editResourceModal.addEventListener('click', (e) => {
+      if (e.target === editResourceModal) {
+        closeEditResourceModal();
+      }
+    });
+
+    // Toggle label depending on selected type in Edit form
+    editResourceTypeSelect.addEventListener('change', () => {
+      const type = editResourceTypeSelect.value;
+      if (type === 'templates' || type === 'charts' || type === 'maps') {
+        editTitleLabel.textContent = '2. Title';
+        editResourceTitleInput.placeholder = 'Enter resource title...';
+      } else {
+        if (type === 'icons') {
+          editTitleLabel.textContent = '2. Icon Name';
+          editResourceTitleInput.placeholder = 'Enter icon name...';
+        } else {
+          editTitleLabel.textContent = '2. Image Title';
+          editResourceTitleInput.placeholder = 'Enter scientific image title...';
+        }
+      }
+    });
+
+    // Keywords chip selection inside Edit Form
+    editKeywordPickerContainer.addEventListener('click', (e) => {
+      const chip = e.target.closest('.p-chip');
+      if (!chip) return;
+      
+      const keyword = chip.getAttribute('data-keyword');
+      if (chip.classList.contains('selected')) {
+        chip.classList.remove('selected');
+        editSelectedKeywords = editSelectedKeywords.filter(kw => kw !== keyword);
+      } else {
+        chip.classList.add('selected');
+        editSelectedKeywords.push(keyword);
+      }
+      
+      updateEditKeywordsInput();
+    });
+
+    editAddCustomKeywordBtn.addEventListener('click', addEditCustomKeyword);
+    editCustomKeywordInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        addEditCustomKeyword();
+      }
+    });
+
+    // Edit form submission
+    editResourceForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      if (editSelectedKeywords.length === 0) {
+        editResourceKeywordsInput.setCustomValidity('Please select at least one keyword.');
+        editResourceForm.reportValidity();
+        return;
+      }
+
+      const id = editResourceIdInput.value;
+      const oldType = editResourceOldTypeInput.value;
+      const newType = editResourceTypeSelect.value;
+      const title = editResourceTitleInput.value.trim();
+      const keywords = editResourceKeywordsInput.value;
+
+      try {
+        const response = await fetch(`/api/resources/${oldType}/${id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            type: newType,
+            title: title,
+            keywords: keywords
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error('Edit operation failed');
+        }
+
+        const resJson = await response.json();
+        if (resJson.success) {
+          closeEditResourceModal();
+          
+          // Auto-switch view tab to matching subcategory if changed
+          activeCategory = newType;
+          sidebarMenuItems.forEach(item => {
+            if (item.getAttribute('data-category') === activeCategory) {
+              item.classList.add('active');
+            } else {
+              item.classList.remove('active');
+            }
+          });
+
+          updateCategoryView(activeCategory);
+        } else {
+          alert('Could not update resource.');
+        }
+      } catch (err) {
+        console.error('Edit submission error:', err);
+        alert('Error updating form. Please verify network and server.');
       }
     });
   }
@@ -330,6 +493,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Open Lightbox Modal (Constraining slides strictly to 16:9 widescreen)
   function openLargeView(category, item) {
+    currentOpenItem = item;
+    currentOpenCategory = category;
     modalPreviewPanel.innerHTML = '';
     modalMetaRow.innerHTML = '';
     modalPreviewPanel.className = 'modal-preview-panel';
@@ -557,6 +722,119 @@ document.addEventListener('DOMContentLoaded', () => {
     // Defaults: Slide type active
     titleLabel.textContent = '2. Slide Title';
     resourceTitle.placeholder = 'Enter slide title...';
+  }
+
+  // Reset Edit Form
+  function resetEditResourceForm() {
+    editResourceForm.reset();
+    editSelectedKeywords = [];
+    editKeywordPickerContainer.querySelectorAll('.p-chip').forEach(chip => {
+      chip.classList.remove('selected');
+    });
+    
+    // Remove custom tags added in previous edit session
+    const defaultKeywords = ['map', 'california', 'texas', 'guidelines', 'finance', 'metrics', 'growth', 'biology', 'science', 'global', 'tech'];
+    editKeywordPickerContainer.querySelectorAll('.p-chip').forEach(chip => {
+      const kw = chip.getAttribute('data-keyword');
+      if (!defaultKeywords.includes(kw)) {
+        chip.remove();
+      }
+    });
+    editResourceKeywordsInput.value = '';
+    editCustomKeywordInput.value = '';
+  }
+
+  // Populate and Open Edit Modal
+  function openEditResourceModal() {
+    if (!currentOpenItem || !currentOpenCategory) return;
+    
+    resetEditResourceForm();
+
+    const item = currentOpenItem;
+    const category = currentOpenCategory;
+
+    // Set IDs and types
+    editResourceIdInput.value = item.id;
+    editResourceOldTypeInput.value = category;
+    editResourceTypeSelect.value = category;
+
+    // Trigger select change handler to update label placeholder
+    editResourceTypeSelect.dispatchEvent(new Event('change'));
+
+    // Set Title
+    editResourceTitleInput.value = item.title || item.name;
+
+    // Set Keywords
+    const keywordsList = item.keywords.split(',').map(kw => kw.trim()).filter(kw => kw !== '');
+    keywordsList.forEach(keyword => {
+      const rawVal = keyword.toLowerCase();
+      editSelectedKeywords.push(rawVal);
+
+      // Check if chip already exists
+      let chip = editKeywordPickerContainer.querySelector(`.p-chip[data-keyword="${rawVal}"]`);
+      if (!chip) {
+        // Create custom chip dynamically
+        chip = document.createElement('span');
+        chip.className = 'p-chip';
+        chip.setAttribute('data-keyword', rawVal);
+        chip.textContent = rawVal;
+        editKeywordPickerContainer.appendChild(chip);
+      }
+      chip.classList.add('selected');
+    });
+
+    updateEditKeywordsInput();
+
+    // Hide Lightbox and show Edit Modal
+    closeLargeView();
+    editResourceModal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+  }
+
+  // Close Edit Modal
+  function closeEditResourceModal() {
+    editResourceModal.style.display = 'none';
+    document.body.style.overflow = 'auto';
+  }
+
+  // Helper to update hidden edit keywords input validity
+  function updateEditKeywordsInput() {
+    const keywordsStr = editSelectedKeywords.join(', ');
+    editResourceKeywordsInput.value = keywordsStr;
+    
+    if (editSelectedKeywords.length > 0) {
+      editResourceKeywordsInput.setCustomValidity('');
+    } else {
+      editResourceKeywordsInput.setCustomValidity('Please select at least one keyword.');
+    }
+  }
+
+  // Custom Keyword Addition for Edit Form
+  function addEditCustomKeyword() {
+    const rawVal = editCustomKeywordInput.value.trim().toLowerCase();
+    if (!rawVal) return;
+    
+    let existingChip = editKeywordPickerContainer.querySelector(`.p-chip[data-keyword="${rawVal}"]`);
+    if (existingChip) {
+      if (!existingChip.classList.contains('selected')) {
+        existingChip.classList.add('selected');
+        editSelectedKeywords.push(rawVal);
+        updateEditKeywordsInput();
+      }
+      editCustomKeywordInput.value = '';
+      return;
+    }
+    
+    const newChip = document.createElement('span');
+    newChip.className = 'p-chip selected';
+    newChip.setAttribute('data-keyword', rawVal);
+    newChip.textContent = rawVal;
+    
+    editKeywordPickerContainer.appendChild(newChip);
+    editSelectedKeywords.push(rawVal);
+    updateEditKeywordsInput();
+    
+    editCustomKeywordInput.value = '';
   }
 
   // Toggle field visibility depending on selected type

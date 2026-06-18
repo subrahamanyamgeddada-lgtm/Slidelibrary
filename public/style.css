@@ -615,6 +615,18 @@ body {
   border-color: #C1C7D0;
 }
 
+.btn-primary.secondary.delete-action-btn {
+  color: #FF5630;
+  border-color: #FF5630;
+  background-color: #FFEBE6;
+}
+
+.btn-primary.secondary.delete-action-btn:hover {
+  background-color: #FF5630;
+  color: #FFFFFF;
+  border-color: #FF5630;
+}
+
 /* Empty State */
 .empty-state {
   display: flex;

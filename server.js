@@ -248,6 +248,185 @@ app.post('/api/resources', upload.array('files', 50), async (req, res) => {
   }
 });
 
+
+// DELETE /api/resources/:type/:id
+app.delete('/api/resources/:type/:id', async (req, res) => {
+  const { type, id } = req.params;
+
+  let tableName = '';
+  if (type === 'templates' || type === 'charts' || type === 'maps') {
+    tableName = 'slides';
+  } else if (type === 'icons') {
+    tableName = 'icons';
+  } else if (type === 'scientific') {
+    tableName = 'scientific_images';
+  } else {
+    return res.status(400).json({ error: 'Invalid resource type' });
+  }
+
+  try {
+    const query = `DELETE FROM ${tableName} WHERE id = $1 RETURNING *;`;
+    const result = await db.query(query, [id]);
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Resource not found' });
+    }
+
+    console.log(`Successfully deleted resource ID ${id} from table ${tableName}`);
+    res.json({ success: true, message: 'Resource deleted successfully' });
+  } catch (err) {
+    console.error('Error deleting resource from database:', err);
+    res.status(500).json({ error: 'Database delete operation failed' });
+  }
+});
+
+// PUT /api/resources/:type/:id
+app.put('/api/resources/:type/:id', async (req, res) => {
+  const { type: oldType, id } = req.params;
+  const { type: newType, title, keywords } = req.body;
+
+  if (!newType || !title || !keywords) {
+    return res.status(400).json({ error: 'Missing required update parameters' });
+  }
+
+  const oldIsSlide = (oldType === 'templates' || oldType === 'charts' || oldType === 'maps');
+  const newIsSlide = (newType === 'templates' || newType === 'charts' || newType === 'maps');
+
+  const oldTable = oldIsSlide ? 'slides' : (oldType === 'icons' ? 'icons' : 'scientific_images');
+  const newTable = newIsSlide ? 'slides' : (newType === 'icons' ? 'icons' : 'scientific_images');
+
+  try {
+    if (oldTable === newTable) {
+      // 1. Same table update
+      let result;
+      if (oldTable === 'slides') {
+        const slideType = newType === 'charts' ? '3-pointer' : (newType === 'maps' ? 'map' : 'title');
+        const query = `
+          UPDATE slides 
+          SET title = $1, keywords = $2, slide_type = $3
+          WHERE id = $4
+          RETURNING *;
+        `;
+        result = await db.query(query, [title, keywords, slideType, id]);
+      } else if (oldTable === 'icons') {
+        const query = `
+          UPDATE icons 
+          SET name = $1, keywords = $2
+          WHERE id = $3
+          RETURNING *;
+        `;
+        result = await db.query(query, [title, keywords, id]);
+      } else {
+        const query = `
+          UPDATE scientific_images 
+          SET title = $1, keywords = $2
+          WHERE id = $3
+          RETURNING *;
+        `;
+        result = await db.query(query, [title, keywords, id]);
+      }
+
+      if (result.rowCount === 0) {
+        return res.status(404).json({ error: 'Resource not found' });
+      }
+
+      console.log(`Successfully updated resource ID ${id} in table ${oldTable}`);
+      return res.json({ success: true, data: result.rows[0] });
+
+    } else {
+      // 2. Different table update (Migration required)
+      // First, fetch the old record to extract URLs
+      const oldSelectQuery = `SELECT * FROM ${oldTable} WHERE id = $1;`;
+      const oldRecordRes = await db.query(oldSelectQuery, [id]);
+
+      if (oldRecordRes.rowCount === 0) {
+        return res.status(404).json({ error: 'Resource not found' });
+      }
+
+      const oldRecord = oldRecordRes.rows[0];
+      
+      // Determine source file URLs
+      let fileUrl = '';
+      if (oldTable === 'slides') {
+        fileUrl = oldRecord.pptx_file_url;
+      } else if (oldTable === 'icons') {
+        fileUrl = oldRecord.file_url;
+      } else {
+        fileUrl = oldRecord.file_url;
+      }
+
+      let insertedRecord;
+
+      if (newTable === 'slides') {
+        const slideType = newType === 'charts' ? '3-pointer' : (newType === 'maps' ? 'map' : 'title');
+        let previewUrl = '/storage/previews/california_map_preview.png';
+        if (newType === 'charts') {
+          previewUrl = '/storage/previews/financial_performance_preview.png';
+        }
+
+        const insertQuery = `
+          INSERT INTO slides (title, state, slide_type, keywords, description, preview_image_url, pptx_file_url)
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
+          RETURNING *;
+        `;
+        const values = [
+          title,
+          'National',
+          slideType,
+          keywords,
+          'Custom migrated PowerPoint presentation slide template.',
+          previewUrl,
+          fileUrl
+        ];
+        const insertRes = await db.query(insertQuery, values);
+        insertedRecord = insertRes.rows[0];
+
+      } else if (newTable === 'icons') {
+        const insertQuery = `
+          INSERT INTO icons (name, keywords, icon_class, description, file_url)
+          VALUES ($1, $2, $3, $4, $5)
+          RETURNING *;
+        `;
+        const values = [
+          title,
+          keywords,
+          'fa-solid fa-shapes',
+          'Custom migrated vector icon.',
+          fileUrl
+        ];
+        const insertRes = await db.query(insertQuery, values);
+        insertedRecord = insertRes.rows[0];
+
+      } else if (newTable === 'scientific_images') {
+        const insertQuery = `
+          INSERT INTO scientific_images (title, keywords, description, preview_image_url, file_url)
+          VALUES ($1, $2, $3, $4, $5)
+          RETURNING *;
+        `;
+        const values = [
+          title,
+          keywords,
+          'Custom migrated scientific diagram.',
+          fileUrl, // Use the same file URL for preview
+          fileUrl
+        ];
+        const insertRes = await db.query(insertQuery, values);
+        insertedRecord = insertRes.rows[0];
+      }
+
+      // After successful insertion into new table, delete from the old table
+      const deleteQuery = `DELETE FROM ${oldTable} WHERE id = $1;`;
+      await db.query(deleteQuery, [id]);
+
+      console.log(`Successfully migrated resource ID ${id} from ${oldTable} to ${newTable}`);
+      return res.json({ success: true, data: insertedRecord });
+    }
+  } catch (err) {
+    console.error('Error during resource update/migration:', err);
+    res.status(500).json({ error: 'Database write operation failed' });
+  }
+});
+
 app.listen(port, () => {
   console.log(`Server is running at http://localhost:${port}`);
 });
