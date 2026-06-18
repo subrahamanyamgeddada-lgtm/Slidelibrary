@@ -446,11 +446,12 @@ body {
   border: 1px solid var(--border-color);
   border-radius: var(--radius);
   box-shadow: var(--shadow-card);
-  overflow: hidden;
+  overflow: visible;
   display: flex;
   flex-direction: column;
   transition: box-shadow 0.2s, border-color 0.2s, transform 0.15s;
   cursor: pointer;
+  position: relative;
 }
 
 .asset-card:hover {
@@ -468,6 +469,8 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  border-top-left-radius: var(--radius);
+  border-top-right-radius: var(--radius);
 }
 
 /* Slides strictly 16:9 aspect ratio */
@@ -1250,6 +1253,83 @@ body {
 .login-btn-header:hover {
   background-color: rgba(255, 255, 255, 0.1);
   border-color: var(--text-light);
+}
+
+/* Card 3-Dots Action Menu Styles */
+.card-actions-menu {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 10;
+}
+
+.card-menu-trigger {
+  background-color: rgba(255, 255, 255, 0.9);
+  border: 1px solid var(--border-color);
+  color: var(--text-dark);
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  transition: background-color 0.15s, color 0.15s;
+  outline: none;
+}
+
+.card-menu-trigger:hover {
+  background-color: #FFFFFF;
+  color: var(--primary-blue);
+  border-color: #C1C7D0;
+}
+
+.card-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  background-color: #FFFFFF;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-modal);
+  min-width: 110px;
+  padding: 4px 0;
+  z-index: 20;
+  animation: dropdownFade 0.15s ease-out;
+}
+
+.card-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--text-dark);
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.card-dropdown-item:hover {
+  background-color: #F4F5F7;
+}
+
+.card-dropdown-item.edit-item-btn:hover {
+  color: var(--primary-blue);
+}
+
+.card-dropdown-item.delete-item-btn {
+  color: #FF5630;
+}
+
+.card-dropdown-item.delete-item-btn:hover {
+  background-color: #FFEBE6;
+  color: #FF5630;
 }
 
 

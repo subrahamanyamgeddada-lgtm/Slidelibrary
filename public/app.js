@@ -398,9 +398,25 @@ document.addEventListener('DOMContentLoaded', () => {
       card.className = 'asset-card';
 
       // Structure card layout depending on item type
+      let cardHTML = `
+        <div class="card-actions-menu">
+          <button class="card-menu-trigger" title="Resource Actions">
+            <i class="fa-solid fa-ellipsis-vertical"></i>
+          </button>
+          <div class="card-dropdown-menu" style="display: none;">
+            <button class="card-dropdown-item edit-item-btn">
+              <i class="fa-solid fa-pen-to-square"></i> Edit
+            </button>
+            <button class="card-dropdown-item delete-item-btn">
+              <i class="fa-solid fa-trash-can"></i> Delete
+            </button>
+          </div>
+        </div>
+      `;
+
       if (category === 'templates' || category === 'charts' || category === 'maps') {
         // Render Slide Card (strict 16:9 ratio)
-        card.innerHTML = `
+        card.innerHTML = cardHTML + `
           <div class="card-media slide-media">
             <img src="${item.preview_image_url}" alt="${item.title}" onerror="this.src='https://placehold.co/600x338/f4f5f7/5e6c84?text=Slide+Preview'">
           </div>
@@ -423,7 +439,7 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
       } else if (category === 'icons') {
         // Render Icon Card (natural square ratio)
-        card.innerHTML = `
+        card.innerHTML = cardHTML + `
           <div class="card-media icon-box">
             <img src="${item.file_url}" alt="${item.name}" onerror="this.src='https://placehold.co/200x200/f4f5f7/5e6c84?text=Icon'">
           </div>
@@ -445,7 +461,7 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
       } else if (category === 'scientific') {
         // Render Scientific Image Card (contained aspect ratios)
-        card.innerHTML = `
+        card.innerHTML = cardHTML + `
           <div class="card-media sci-media">
             <img src="${item.preview_image_url}" alt="${item.title}" onerror="this.src='https://placehold.co/600x338/f4f5f7/5e6c84?text=Diagram'">
           </div>
@@ -467,9 +483,73 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
       }
 
-      // Add click listener to launch modal large view (excluding tags and buttons)
+      // Bind 3-dots menu handlers
+      const menuTrigger = card.querySelector('.card-menu-trigger');
+      const dropdownMenu = card.querySelector('.card-dropdown-menu');
+      
+      menuTrigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        
+        // Close all other open card dropdowns first
+        document.querySelectorAll('.card-dropdown-menu').forEach(menu => {
+          if (menu !== dropdownMenu) {
+            menu.style.display = 'none';
+          }
+        });
+
+        const isOpen = dropdownMenu.style.display === 'block';
+        dropdownMenu.style.display = isOpen ? 'none' : 'block';
+      });
+
+      // Close dropdowns on document click
+      document.addEventListener('click', () => {
+        dropdownMenu.style.display = 'none';
+      });
+
+      // Edit item handler
+      card.querySelector('.edit-item-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        dropdownMenu.style.display = 'none';
+        
+        // Set currentOpenItem & currentOpenCategory
+        currentOpenItem = item;
+        currentOpenCategory = category;
+        
+        openEditResourceModal();
+      });
+
+      // Delete item handler
+      card.querySelector('.delete-item-btn').addEventListener('click', async (e) => {
+        e.stopPropagation();
+        dropdownMenu.style.display = 'none';
+
+        const confirmDelete = confirm(`Are you sure you want to delete "${item.title || item.name}"? This action cannot be undone.`);
+        if (!confirmDelete) return;
+
+        try {
+          const response = await fetch(`/api/resources/${category}/${item.id}`, {
+            method: 'DELETE'
+          });
+
+          if (!response.ok) {
+            throw new Error('Delete operation failed');
+          }
+
+          const resJson = await response.json();
+          if (resJson.success) {
+            loadData(activeCategory, searchQuery);
+          } else {
+            alert('Could not delete resource.');
+          }
+        } catch (err) {
+          console.error('Delete error:', err);
+          alert('Error deleting resource. Please try again.');
+        }
+      });
+
+      // Add click listener to launch modal large view (excluding tags, buttons, and actions menu)
       card.addEventListener('click', (e) => {
-        if (e.target.closest('.tag') || e.target.closest('.btn-primary')) {
+        if (e.target.closest('.tag') || e.target.closest('.btn-primary') || e.target.closest('.card-actions-menu')) {
           return;
         }
         openLargeView(category, item);
