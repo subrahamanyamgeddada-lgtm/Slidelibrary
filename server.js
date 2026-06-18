@@ -108,6 +108,54 @@ app.get('/api/scientific_images', async (req, res) => {
   }
 });
 
+// API Endpoint to setup the database internally
+app.get('/api/setup', async (req, res) => {
+  try {
+    // Create slides table
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS slides (
+        id SERIAL PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        state VARCHAR(100) NOT NULL,
+        slide_type VARCHAR(100) NOT NULL,
+        keywords TEXT NOT NULL,
+        description TEXT NOT NULL,
+        preview_image_url VARCHAR(255) NOT NULL,
+        pptx_file_url VARCHAR(255) NOT NULL
+      );
+    `);
+    
+    // Create icons table
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS icons (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        keywords TEXT NOT NULL,
+        icon_class VARCHAR(100) NOT NULL,
+        description TEXT NOT NULL,
+        file_url VARCHAR(255) NOT NULL
+      );
+    `);
+
+    // Create scientific_images table
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS scientific_images (
+        id SERIAL PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        keywords TEXT NOT NULL,
+        description TEXT NOT NULL,
+        preview_image_url VARCHAR(255) NOT NULL,
+        file_url VARCHAR(255) NOT NULL
+      );
+    `);
+
+    res.send('Database setup completed successfully! You can now use the app.');
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Error setting up database: ' + err.message);
+  }
+});
+
 // API Endpoint to add new resources to tables dynamically with Multer file upload support
 app.post('/api/resources', upload.single('file'), async (req, res) => {
   const { type, title, keywords } = req.body;
