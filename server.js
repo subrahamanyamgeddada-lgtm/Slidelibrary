@@ -629,6 +629,124 @@ app.put('/api/resources/:type/:id', async (req, res) => {
   }
 });
 
+// POST /api/resources/bulk-delete
+app.post('/api/resources/bulk-delete', async (req, res) => {
+  const { resources } = req.body;
+  if (!resources || !Array.isArray(resources) || resources.length === 0) {
+    return res.status(400).json({ error: 'No resources provided for deletion' });
+  }
+
+  try {
+    await db.query('BEGIN');
+    for (const item of resources) {
+      let tableName = '';
+      if (item.type === 'templates' || item.type === 'charts' || item.type === 'maps') {
+        tableName = 'slides';
+      } else if (item.type === 'icons') {
+        tableName = 'icons';
+      } else if (item.type === 'scientific') {
+        tableName = 'scientific_images';
+      } else {
+        throw new Error(`Invalid resource type: ${item.type}`);
+      }
+      await db.query(`DELETE FROM ${tableName} WHERE id = $1`, [item.id]);
+    }
+    await db.query('COMMIT');
+    res.json({ success: true, message: `Successfully deleted ${resources.length} resources.` });
+  } catch (err) {
+    await db.query('ROLLBACK');
+    console.error('Error during bulk delete:', err);
+    res.status(500).json({ error: 'Database bulk delete operation failed' });
+  }
+});
+
+// POST /api/resources/bulk-move
+app.post('/api/resources/bulk-move', async (req, res) => {
+  const { targetType, resources } = req.body;
+  if (!targetType || !resources || !Array.isArray(resources) || resources.length === 0) {
+    return res.status(400).json({ error: 'Missing required parameters' });
+  }
+
+  const newIsSlide = (targetType === 'templates' || targetType === 'charts' || targetType === 'maps');
+  const newTable = newIsSlide ? 'slides' : (targetType === 'icons' ? 'icons' : 'scientific_images');
+
+  try {
+    await db.query('BEGIN');
+
+    for (const item of resources) {
+      const oldIsSlide = (item.type === 'templates' || item.type === 'charts' || item.type === 'maps');
+      const oldTable = oldIsSlide ? 'slides' : (item.type === 'icons' ? 'icons' : 'scientific_images');
+
+      if (oldTable === newTable) {
+        // Simple update
+        if (oldTable === 'slides') {
+          const slideType = targetType === 'charts' ? '3-pointer' : (targetType === 'maps' ? 'map' : 'title');
+          await db.query('UPDATE slides SET slide_type = $1 WHERE id = $2', [slideType, item.id]);
+        }
+        // If moving icons to icons or scientific to scientific, nothing changes
+      } else {
+        // Migration required
+        const oldSelect = await db.query(`SELECT * FROM ${oldTable} WHERE id = $1`, [item.id]);
+        if (oldSelect.rowCount > 0) {
+          const record = oldSelect.rows[0];
+          let fileUrl = '';
+          if (oldTable === 'slides') {
+            fileUrl = record.pptx_file_url;
+          } else {
+            fileUrl = record.file_url;
+          }
+
+          if (newTable === 'slides') {
+            const slideType = targetType === 'charts' ? '3-pointer' : (targetType === 'maps' ? 'map' : 'title');
+            let previewUrl = '/storage/previews/california_map_preview.png';
+            if (targetType === 'charts') {
+              previewUrl = '/storage/previews/financial_performance_preview.png';
+            }
+            const fileExt = path.extname(fileUrl).toLowerCase();
+            if (['.png', '.jpg', '.jpeg', '.svg'].includes(fileExt)) {
+              previewUrl = fileUrl;
+            } else if (fileExt === '.pptx') {
+              const physicalPath = path.join(__dirname, 'public', fileUrl);
+              const extractedPreview = getPptxPreview(physicalPath);
+              if (extractedPreview) {
+                previewUrl = extractedPreview;
+              }
+            }
+
+            await db.query(
+              `INSERT INTO slides (title, state, slide_type, keywords, description, preview_image_url, pptx_file_url)
+               VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+              [record.title || record.name, 'National', slideType, record.keywords, record.description || 'Custom migrated slide.', previewUrl, fileUrl]
+            );
+          } else if (newTable === 'icons') {
+            await db.query(
+              `INSERT INTO icons (name, keywords, icon_class, description, file_url)
+               VALUES ($1, $2, $3, $4, $5)`,
+              [record.title || record.name, record.keywords, 'fa-solid fa-shapes', record.description || 'Custom migrated icon.', fileUrl]
+            );
+          } else if (newTable === 'scientific_images') {
+            await db.query(
+              `INSERT INTO scientific_images (title, keywords, description, preview_image_url, file_url)
+               VALUES ($1, $2, $3, $4, $5)`,
+              [record.title || record.name, record.keywords, record.description || 'Custom migrated scientific diagram.', fileUrl, fileUrl]
+            );
+          }
+
+          // Delete from old table
+          await db.query(`DELETE FROM ${oldTable} WHERE id = $1`, [item.id]);
+        }
+      }
+    }
+
+    await db.query('COMMIT');
+    res.json({ success: true, message: `Successfully moved ${resources.length} resources to ${targetType}.` });
+  } catch (err) {
+    await db.query('ROLLBACK');
+    console.error('Error during bulk move:', err);
+    res.status(500).json({ error: 'Database bulk move operation failed' });
+  }
+});
+
 app.listen(port, () => {
   console.log(`Server is running at http://localhost:${port}`);
 });

@@ -184,6 +184,10 @@
           <span class="item-count-badge" id="item-count">0 items</span>
         </div>
         <div class="action-section">
+          <button id="bulk-mode-btn" class="btn-primary secondary">
+            <i class="fa-solid fa-list-check"></i>
+            <span>Bulk Actions</span>
+          </button>
         </div>
       </div>
 
@@ -397,6 +401,43 @@
   <footer class="app-footer">
     <p>&copy; 2026 SlideLibrary. All rights reserved.</p>
   </footer>
+
+  <!-- Floating Bulk Actions Bar -->
+  <div id="bulk-actions-bar" class="bulk-actions-bar" style="display: none;">
+    <div class="bulk-bar-left">
+      <button id="bulk-select-all-btn" class="btn-primary secondary">
+        <i class="fa-regular fa-square-check"></i>
+        <span>Select All</span>
+      </button>
+      <span class="bulk-selected-text" id="bulk-selected-count">0 items selected</span>
+    </div>
+    
+    <div class="bulk-bar-right">
+      <div class="bulk-move-wrapper">
+        <span>Move to:</span>
+        <select id="bulk-move-category">
+          <option value="templates">Templates & Slides</option>
+          <option value="charts">Charts & Diagrams</option>
+          <option value="maps">Maps & Flags</option>
+          <option value="icons">Vector Icons</option>
+          <option value="scientific">Scientific Diagrams</option>
+        </select>
+        <button id="bulk-move-btn" class="btn-primary">
+          <i class="fa-solid fa-arrows-to-dot"></i> Move
+        </button>
+      </div>
+      
+      <div class="bulk-divider"></div>
+      
+      <button id="bulk-delete-btn" class="btn-primary danger-btn">
+        <i class="fa-solid fa-trash-can"></i> Delete
+      </button>
+      
+      <button id="bulk-cancel-btn" class="btn-primary secondary">
+        Cancel
+      </button>
+    </div>
+  </div>
 
   <script src="app.js"></script>
 </body>

@@ -1425,5 +1425,165 @@ body {
   margin-bottom: 4px;
 }
 
+/* Bulk Actions Floating Bar and Checkboxes Styling */
+.bulk-actions-bar {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: rgba(255, 255, 255, 0.95);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg, 8px);
+  box-shadow: 0 8px 32px rgba(9, 30, 66, 0.15);
+  padding: 14px 28px;
+  z-index: 1000;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 32px;
+  backdrop-filter: blur(8px);
+  min-width: 720px;
+  max-width: 90%;
+  animation: bulkBarSlideUp 0.25s cubic-bezier(0.1, 0.8, 0.25, 1) forwards;
+}
+
+@keyframes bulkBarSlideUp {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 20px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+.bulk-bar-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.bulk-selected-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-dark);
+}
+
+.bulk-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.bulk-move-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-dark);
+}
+
+.bulk-move-wrapper select {
+  padding: 6px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  outline: none;
+  background-color: #FAFBFC;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--text-dark);
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.bulk-move-wrapper select:focus {
+  border-color: var(--primary-blue);
+}
+
+.bulk-divider {
+  width: 1px;
+  height: 24px;
+  background-color: var(--border-color);
+}
+
+.danger-btn {
+  background-color: #FF5630;
+  border: 1px solid #FF5630;
+  color: white;
+}
+
+.danger-btn:hover {
+  background-color: #DE350B;
+  border-color: #DE350B;
+}
+
+/* Card Checkbox overlay styles */
+.card-checkbox-wrapper {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 15;
+  display: none;
+}
+
+.card-select-checkbox {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  border: 2px solid #A5ADBA;
+  background: rgba(255, 255, 255, 0.95);
+  cursor: pointer;
+  accent-color: var(--primary-blue);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+  appearance: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease-in-out;
+}
+
+.card-select-checkbox:hover {
+  border-color: var(--primary-blue);
+}
+
+.card-select-checkbox:checked {
+  background-color: var(--primary-blue);
+  border-color: var(--primary-blue);
+}
+
+.card-select-checkbox:checked::before {
+  content: "\f00c";
+  font-family: "Font Awesome 6 Free";
+  font-weight: 900;
+  font-size: 11px;
+  color: white;
+}
+
+/* Apply bulk selection state visual styles */
+body.bulk-select-active .card-checkbox-wrapper {
+  display: block;
+}
+
+body.bulk-select-active .card-actions-menu {
+  display: none !important;
+}
+
+body.bulk-select-active .asset-card {
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+body.bulk-select-active .asset-card:hover {
+  border-color: #B3D4FF;
+}
+
+body.bulk-select-active .asset-card.selected {
+  border-color: var(--primary-blue);
+  box-shadow: 0 0 0 2px rgba(0, 82, 204, 0.2), var(--shadow-card);
+  background-color: #F4F5F7;
+}
+
 
 

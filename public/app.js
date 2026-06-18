@@ -7,6 +7,8 @@ document.addEventListener('DOMContentLoaded', () => {
   let debounceTimer;
   let currentOpenItem = null;
   let currentOpenCategory = null;
+  let isBulkSelectMode = false;
+  let selectedBulkItems = [];
 
   // DOM Elements
   const globalSearch = document.getElementById('global-search');
@@ -26,6 +28,16 @@ document.addEventListener('DOMContentLoaded', () => {
   const appLayout = document.querySelector('.app-layout');
   const appFooter = document.querySelector('.app-footer');
   const loginScreen = document.getElementById('login-screen');
+
+  // Bulk Action UI DOM Elements
+  const bulkModeBtn = document.getElementById('bulk-mode-btn');
+  const bulkActionsBar = document.getElementById('bulk-actions-bar');
+  const bulkSelectAllBtn = document.getElementById('bulk-select-all-btn');
+  const bulkSelectedCount = document.getElementById('bulk-selected-count');
+  const bulkMoveCategory = document.getElementById('bulk-move-category');
+  const bulkMoveBtn = document.getElementById('bulk-move-btn');
+  const bulkDeleteBtn = document.getElementById('bulk-delete-btn');
+  const bulkCancelBtn = document.getElementById('bulk-cancel-btn');
 
   // Modal DOM Elements
   const largeViewModal = document.getElementById('large-view-modal');
@@ -117,6 +129,9 @@ document.addEventListener('DOMContentLoaded', () => {
       // Load correct category view data
       updateCategoryView(activeCategory);
     } else {
+      // Exit bulk select mode on logout
+      toggleBulkSelectMode(false);
+
       // Hide main content, show login screen
       if (loginScreen) loginScreen.style.display = 'flex';
       if (appTopnav) appTopnav.style.display = 'none';
@@ -129,6 +144,66 @@ document.addEventListener('DOMContentLoaded', () => {
       const loginErrorMsg = document.getElementById('login-error-msg');
       if (loginErrorMsg) loginErrorMsg.style.display = 'none';
     }
+  }
+
+  // Update floating bulk action bar counters and text
+  function updateBulkActionsBar() {
+    if (bulkSelectedCount) {
+      bulkSelectedCount.textContent = `${selectedBulkItems.length} item${selectedBulkItems.length === 1 ? '' : 's'} selected`;
+    }
+
+    // Toggle Select All text/icon based on whether all visible items are selected
+    const visibleCards = cardsGrid.querySelectorAll('.asset-card');
+    const allChecked = Array.from(visibleCards).every(card => {
+      const chk = card.querySelector('.card-select-checkbox');
+      return chk && chk.checked;
+    });
+
+    if (bulkSelectAllBtn) {
+      if (allChecked && visibleCards.length > 0) {
+        bulkSelectAllBtn.innerHTML = '<i class="fa-solid fa-square-minus"></i> <span>Deselect All</span>';
+      } else {
+        bulkSelectAllBtn.innerHTML = '<i class="fa-regular fa-square-check"></i> <span>Select All</span>';
+      }
+    }
+  }
+
+  // Toggle Bulk Select Mode on/off
+  function toggleBulkSelectMode(active) {
+    isBulkSelectMode = active;
+    
+    if (active) {
+      document.body.classList.add('bulk-select-active');
+      if (bulkActionsBar) bulkActionsBar.style.display = 'flex';
+      if (bulkModeBtn) {
+        bulkModeBtn.innerHTML = '<i class="fa-solid fa-xmark"></i> <span>Exit Bulk Mode</span>';
+        bulkModeBtn.classList.remove('secondary');
+        bulkModeBtn.style.backgroundColor = '#FFEBE6';
+        bulkModeBtn.style.color = '#FF5630';
+        bulkModeBtn.style.borderColor = '#FF5630';
+      }
+      // Populate target group selection dropdown with current activeCategory pre-selected
+      if (bulkMoveCategory) {
+        bulkMoveCategory.value = activeCategory;
+      }
+    } else {
+      document.body.classList.remove('bulk-select-active');
+      if (bulkActionsBar) bulkActionsBar.style.display = 'none';
+      if (bulkModeBtn) {
+        bulkModeBtn.innerHTML = '<i class="fa-solid fa-list-check"></i> <span>Bulk Actions</span>';
+        bulkModeBtn.classList.add('secondary');
+        bulkModeBtn.removeAttribute('style'); // reset layout styles
+      }
+      // Clear selections
+      selectedBulkItems = [];
+      // Uncheck checkboxes and clear styling on cards
+      cardsGrid.querySelectorAll('.asset-card').forEach(card => {
+        card.classList.remove('selected');
+        const chk = card.querySelector('.card-select-checkbox');
+        if (chk) chk.checked = false;
+      });
+    }
+    updateBulkActionsBar();
   }
 
   // Bind interaction events
@@ -149,6 +224,12 @@ document.addEventListener('DOMContentLoaded', () => {
         activeCategory = category;
         globalSearch.value = '';
         updateClearButtonVisibility();
+
+        // Exit bulk select mode when switching categories
+        if (isBulkSelectMode) {
+          toggleBulkSelectMode(false);
+        }
+
         updateCategoryView(category);
       });
     });
@@ -407,6 +488,128 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       });
     }
+
+    // Toggle Bulk Action mode
+    if (bulkModeBtn) {
+      bulkModeBtn.addEventListener('click', () => {
+        toggleBulkSelectMode(!isBulkSelectMode);
+      });
+    }
+
+    // Cancel Bulk Mode
+    if (bulkCancelBtn) {
+      bulkCancelBtn.addEventListener('click', () => {
+        toggleBulkSelectMode(false);
+      });
+    }
+
+    // Select/Deselect All visible cards in current tab
+    if (bulkSelectAllBtn) {
+      bulkSelectAllBtn.addEventListener('click', () => {
+        const visibleCards = cardsGrid.querySelectorAll('.asset-card');
+        const allChecked = Array.from(visibleCards).every(card => {
+          const chk = card.querySelector('.card-select-checkbox');
+          return chk && chk.checked;
+        });
+
+        visibleCards.forEach(card => {
+          const chk = card.querySelector('.card-select-checkbox');
+          if (chk) {
+            chk.checked = !allChecked;
+            chk.dispatchEvent(new Event('change'));
+          }
+        });
+      });
+    }
+
+    // Bulk Delete Selected
+    if (bulkDeleteBtn) {
+      bulkDeleteBtn.addEventListener('click', async () => {
+        if (selectedBulkItems.length === 0) {
+          alert('Please select at least one item to delete.');
+          return;
+        }
+
+        const confirmDelete = confirm(`Are you sure you want to delete ${selectedBulkItems.length} selected resources? This action cannot be undone.`);
+        if (!confirmDelete) return;
+
+        try {
+          const response = await fetch('/api/resources/bulk-delete', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ resources: selectedBulkItems })
+          });
+
+          if (!response.ok) {
+            throw new Error('Bulk delete operation failed');
+          }
+
+          const resJson = await response.json();
+          if (resJson.success) {
+            toggleBulkSelectMode(false);
+            loadData(activeCategory, searchQuery);
+          } else {
+            alert('Could not delete resources.');
+          }
+        } catch (err) {
+          console.error('Bulk delete error:', err);
+          alert('Error during bulk deletion. Please verify connection.');
+        }
+      });
+    }
+
+    // Bulk Move Selected
+    if (bulkMoveBtn) {
+      bulkMoveBtn.addEventListener('click', async () => {
+        if (selectedBulkItems.length === 0) {
+          alert('Please select at least one item to move.');
+          return;
+        }
+
+        const targetType = bulkMoveCategory.value;
+
+        try {
+          const response = await fetch('/api/resources/bulk-move', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              targetType: targetType,
+              resources: selectedBulkItems
+            })
+          });
+
+          if (!response.ok) {
+            throw new Error('Bulk move operation failed');
+          }
+
+          const resJson = await response.json();
+          if (resJson.success) {
+            toggleBulkSelectMode(false);
+            
+            // Switch tab to the target group we just moved the files to
+            activeCategory = targetType;
+            sidebarMenuItems.forEach(item => {
+              if (item.getAttribute('data-category') === activeCategory) {
+                item.classList.add('active');
+              } else {
+                item.classList.remove('active');
+              }
+            });
+
+            updateCategoryView(activeCategory);
+          } else {
+            alert('Could not move resources.');
+          }
+        } catch (err) {
+          console.error('Bulk move error:', err);
+          alert('Error during bulk migration. Please check connection.');
+        }
+      });
+    }
   }
 
   // Update layout titles and suggestions
@@ -502,8 +705,22 @@ document.addEventListener('DOMContentLoaded', () => {
       const card = document.createElement('div');
       card.className = 'asset-card';
 
+      const isSelected = selectedBulkItems.some(i => i.id === item.id && i.type === category);
+      if (isSelected) {
+        card.classList.add('selected');
+      }
+
       // Structure card layout depending on item type
       let cardHTML = `
+        <div class="card-checkbox-wrapper">
+          <input 
+            type="checkbox" 
+            class="card-select-checkbox" 
+            data-id="${item.id}" 
+            data-type="${category}"
+            ${isSelected ? 'checked' : ''}
+          >
+        </div>
         <div class="card-actions-menu">
           <button class="card-menu-trigger" title="Resource Actions">
             <i class="fa-solid fa-ellipsis-vertical"></i>
@@ -652,8 +869,37 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       });
 
+      // Bind checkbox change handler
+      const checkbox = card.querySelector('.card-select-checkbox');
+      if (checkbox) {
+        checkbox.addEventListener('change', (e) => {
+          const id = parseInt(e.target.getAttribute('data-id'));
+          const type = e.target.getAttribute('data-type');
+          
+          if (e.target.checked) {
+            if (!selectedBulkItems.some(i => i.id === id && i.type === type)) {
+              selectedBulkItems.push({ id, type });
+            }
+            card.classList.add('selected');
+          } else {
+            selectedBulkItems = selectedBulkItems.filter(i => !(i.id === id && i.type === type));
+            card.classList.remove('selected');
+          }
+          updateBulkActionsBar();
+        });
+      }
+
       // Add click listener to launch modal large view (excluding tags, buttons, and actions menu)
       card.addEventListener('click', (e) => {
+        if (isBulkSelectMode) {
+          // Toggle select
+          const chk = card.querySelector('.card-select-checkbox');
+          if (chk && e.target !== chk) {
+            chk.checked = !chk.checked;
+            chk.dispatchEvent(new Event('change'));
+          }
+          return;
+        }
         if (e.target.closest('.tag') || e.target.closest('.btn-primary') || e.target.closest('.card-actions-menu')) {
           return;
         }
