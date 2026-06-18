@@ -260,7 +260,11 @@ document.addEventListener('DOMContentLoaded', () => {
       searchQuery = globalSearch.value.trim();
       
       debounceTimer = setTimeout(() => {
-        loadData(activeCategory, searchQuery);
+        if (searchQuery) {
+          loadGlobalSearch(searchQuery);
+        } else {
+          loadData(activeCategory, '');
+        }
       }, 350);
     });
 
@@ -279,6 +283,16 @@ document.addEventListener('DOMContentLoaded', () => {
       updateClearButtonVisibility();
       searchQuery = '';
       loadData(activeCategory, '');
+    });
+
+    // Global search clear (from empty state)
+    document.addEventListener('click', (e) => {
+      if (e.target && e.target.id === 'global-clear-search-btn') {
+        globalSearch.value = '';
+        updateClearButtonVisibility();
+        searchQuery = '';
+        loadData(activeCategory, '');
+      }
     });
 
     // Modal Close button
@@ -684,6 +698,146 @@ document.addEventListener('DOMContentLoaded', () => {
     } finally {
       showSpinner(false);
     }
+  }
+
+  // Global search across ALL categories (slides + icons + scientific diagrams)
+  async function loadGlobalSearch(query) {
+    showSpinner(true);
+    try {
+      const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+      if (!response.ok) throw new Error(`HTTP error ${response.status}`);
+      const data = await response.json();
+      renderGlobalSearchResults(data, query);
+    } catch (err) {
+      console.error('Error in global search:', err);
+      cardsGrid.innerHTML = `
+        <div class="empty-state" style="grid-column: 1 / -1; border-color: var(--color-warning);">
+          <div class="empty-illustration" style="color: var(--color-warning);">
+            <i class="fa-solid fa-circle-exclamation"></i>
+          </div>
+          <h3>Search Failed</h3>
+          <p>We encountered an error searching across all resources.</p>
+        </div>
+      `;
+    } finally {
+      showSpinner(false);
+    }
+  }
+
+  // Render results from global search (all tables at once)
+  function renderGlobalSearchResults(items, query) {
+    cardsGrid.innerHTML = '';
+    itemCount.textContent = `${items.length} result${items.length === 1 ? '' : 's'} across all categories`;
+
+    if (items.length === 0) {
+      emptyState.style.display = 'flex';
+      cardsGrid.style.display = 'none';
+      searchedTermDisplay.textContent = query;
+      return;
+    }
+
+    emptyState.style.display = 'none';
+    cardsGrid.style.display = 'grid';
+
+    // Category label mapping
+    const categoryLabels = {
+      slides: 'Slide',
+      icons: 'Icon',
+      scientific_images: 'Scientific'
+    };
+    const categoryColors = {
+      slides: 'var(--color-primary)',
+      icons: '#00B8D9',
+      scientific_images: '#36B37E'
+    };
+
+    items.forEach(item => {
+      const cat = item._table || 'slides';
+      const card = document.createElement('div');
+      card.className = 'asset-card';
+
+      // Determine the frontend category for bulk/edit operations
+      let frontendCategory = 'templates';
+      if (cat === 'icons') frontendCategory = 'icons';
+      else if (cat === 'scientific_images') frontendCategory = 'scientific';
+      else if (item.slide_type === 'map') frontendCategory = 'maps';
+      else if (item.slide_type === '3-pointer' || item.slide_type === 'guidelines') frontendCategory = 'charts';
+
+      const catLabel = categoryLabels[cat] || 'Slide';
+      const catColor = categoryColors[cat] || 'var(--color-primary)';
+
+      card.innerHTML = `
+        <div class="card-checkbox-wrapper">
+          <input type="checkbox" class="card-select-checkbox" data-id="${item.id}" data-type="${frontendCategory}">
+        </div>
+        <div class="card-actions-menu">
+          <button class="card-menu-trigger" title="Resource Actions">
+            <i class="fa-solid fa-ellipsis-vertical"></i>
+          </button>
+          <div class="card-dropdown-menu" style="display: none;">
+            <button class="card-dropdown-item delete-item-btn">
+              <i class="fa-solid fa-trash-can"></i> Delete
+            </button>
+          </div>
+        </div>
+        <div class="card-media slide-media">
+          <img src="${item.preview_image_url}" alt="${item.title}" onerror="this.src='https://placehold.co/600x338/f4f5f7/5e6c84?text=Preview'">
+        </div>
+        <div class="card-body">
+          <div class="card-meta">
+            <span class="badge type" style="background:${catColor};color:#fff;">${catLabel}</span>
+            ${item.state ? `<span class="badge state">${item.state}</span>` : ''}
+          </div>
+          <h4 class="card-title">${item.title}</h4>
+          <p class="card-keywords">${(item.keywords || '').split(',').slice(0, 3).map(k => `<span class="kw-chip">${k.trim()}</span>`).join(' ')}</p>
+        </div>
+      `;
+
+      // Click card to open detail view
+      card.addEventListener('click', (e) => {
+        if (e.target.closest('.card-actions-menu') || e.target.closest('.card-checkbox-wrapper')) return;
+        currentOpenItem = item;
+        currentOpenCategory = frontendCategory;
+        openLargeView(item, frontendCategory);
+      });
+
+      // Three-dot menu
+      const menuTrigger = card.querySelector('.card-menu-trigger');
+      const dropdownMenu = card.querySelector('.card-dropdown-menu');
+      menuTrigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        document.querySelectorAll('.card-dropdown-menu').forEach(m => { if (m !== dropdownMenu) m.style.display = 'none'; });
+        dropdownMenu.style.display = dropdownMenu.style.display === 'block' ? 'none' : 'block';
+      });
+
+      // Delete from menu
+      const deleteBtn = card.querySelector('.delete-item-btn');
+      if (deleteBtn) {
+        deleteBtn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          dropdownMenu.style.display = 'none';
+          const confirmDelete = confirm(`Delete "${item.title}"? This cannot be undone.`);
+          if (!confirmDelete) return;
+          try {
+            const resp = await fetch(`/api/resources/${frontendCategory}/${item.id}`, { method: 'DELETE' });
+            if (!resp.ok) throw new Error('Delete failed');
+            const rj = await resp.json();
+            if (rj.success) loadGlobalSearch(query);
+            else alert('Could not delete resource.');
+          } catch (err) {
+            console.error('Delete error:', err);
+            alert('Error deleting resource.');
+          }
+        });
+      }
+
+      cardsGrid.appendChild(card);
+    });
+
+    // Close menus on outside click
+    document.addEventListener('click', () => {
+      document.querySelectorAll('.card-dropdown-menu').forEach(m => m.style.display = 'none');
+    }, { once: true });
   }
 
   // Generate cards

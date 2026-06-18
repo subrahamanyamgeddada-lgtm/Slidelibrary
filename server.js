@@ -172,6 +172,62 @@ app.get('/api/scientific_images', async (req, res) => {
   }
 });
 
+// API Endpoint for Global Search across ALL tables (slides, icons, scientific_images)
+app.get('/api/search', async (req, res) => {
+  const queryText = req.query.q;
+  if (!queryText || queryText.trim() === '') {
+    return res.json([]);
+  }
+
+  try {
+    const q = queryText.trim();
+
+    const searchSlidesSQL = `
+      SELECT id, title, state, slide_type, keywords, description, preview_image_url, pptx_file_url, 'slides' AS _table,
+        ts_rank(to_tsvector('english', coalesce(title,'') || ' ' || coalesce(keywords,'') || ' ' || coalesce(description,'')),
+          plainto_tsquery('english', $1)) AS rank
+      FROM slides
+      WHERE to_tsvector('english', coalesce(title,'') || ' ' || coalesce(keywords,'') || ' ' || coalesce(description,''))
+        @@ plainto_tsquery('english', $1);
+    `;
+
+    const searchIconsSQL = `
+      SELECT id, name AS title, '' AS state, 'icon' AS slide_type, keywords, description, file_url AS preview_image_url, file_url AS pptx_file_url, 'icons' AS _table,
+        ts_rank(to_tsvector('english', coalesce(name,'') || ' ' || coalesce(keywords,'') || ' ' || coalesce(description,'')),
+          plainto_tsquery('english', $1)) AS rank
+      FROM icons
+      WHERE to_tsvector('english', coalesce(name,'') || ' ' || coalesce(keywords,'') || ' ' || coalesce(description,''))
+        @@ plainto_tsquery('english', $1);
+    `;
+
+    const searchSciSQL = `
+      SELECT id, title, '' AS state, 'scientific' AS slide_type, keywords, description, preview_image_url, file_url AS pptx_file_url, 'scientific_images' AS _table,
+        ts_rank(to_tsvector('english', coalesce(title,'') || ' ' || coalesce(keywords,'') || ' ' || coalesce(description,'')),
+          plainto_tsquery('english', $1)) AS rank
+      FROM scientific_images
+      WHERE to_tsvector('english', coalesce(title,'') || ' ' || coalesce(keywords,'') || ' ' || coalesce(description,''))
+        @@ plainto_tsquery('english', $1);
+    `;
+
+    const [slidesRes, iconsRes, sciRes] = await Promise.all([
+      db.query(searchSlidesSQL, [q]),
+      db.query(searchIconsSQL, [q]),
+      db.query(searchSciSQL, [q])
+    ]);
+
+    const combined = [
+      ...slidesRes.rows,
+      ...iconsRes.rows,
+      ...sciRes.rows
+    ].sort((a, b) => b.rank - a.rank);
+
+    res.json(combined);
+  } catch (err) {
+    console.error('Error in global search:', err);
+    res.status(500).json({ error: 'An error occurred during global search' });
+  }
+});
+
 // API Endpoint to setup the database internally
 app.get('/api/setup', async (req, res) => {
   const forceReseed = req.query.force === 'true';
