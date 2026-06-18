@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
 const db = require('./db');
+const AdmZip = require('adm-zip');
 require('dotenv').config();
 
 const app = express();
@@ -25,6 +26,33 @@ const storage = multer.diskStorage({
   }
 });
 const upload = multer({ storage: storage });
+
+// Helper to extract thumbnail from PPTX using adm-zip
+function getPptxPreview(pptxPath) {
+  try {
+    const zip = new AdmZip(pptxPath);
+    const zipEntries = zip.getEntries();
+    
+    const thumbnailEntry = zipEntries.find(entry => 
+      entry.entryName.toLowerCase() === 'docprops/thumbnail.jpeg' ||
+      entry.entryName.toLowerCase() === 'docprops/thumbnail.jpg' ||
+      entry.entryName.toLowerCase() === 'docprops/thumbnail.png'
+    );
+    
+    if (thumbnailEntry) {
+      const ext = path.extname(thumbnailEntry.entryName).toLowerCase();
+      const previewFilename = `preview-${Date.now()}-${Math.round(Math.random() * 1E9)}${ext}`;
+      const previewPath = path.join(__dirname, 'public', 'storage', 'uploads', previewFilename);
+      
+      const buffer = zip.readFile(thumbnailEntry);
+      fs.writeFileSync(previewPath, buffer);
+      return `/storage/uploads/${previewFilename}`;
+    }
+  } catch (err) {
+    console.error('Error extracting PPTX thumbnail:', err.message);
+  }
+  return null;
+}
 
 // Serve static assets from the 'public' directory
 app.use(express.static(path.join(__dirname, 'public')));
@@ -303,6 +331,17 @@ app.post('/api/resources', upload.array('files', 50), async (req, res) => {
           previewUrl = '/storage/previews/california_map_preview.png';
         }
 
+        // Try extracting preview from PPTX or use file directly if it is an image
+        const fileExt = path.extname(file.filename).toLowerCase();
+        if (fileExt === '.pptx') {
+          const extractedPreview = getPptxPreview(file.path);
+          if (extractedPreview) {
+            previewUrl = extractedPreview;
+          }
+        } else if (['.png', '.jpg', '.jpeg', '.svg'].includes(fileExt)) {
+          previewUrl = relativeFileUrl;
+        }
+
         const query = `
           INSERT INTO slides (title, state, slide_type, keywords, description, preview_image_url, pptx_file_url)
           VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -481,6 +520,18 @@ app.put('/api/resources/:type/:id', async (req, res) => {
         let previewUrl = '/storage/previews/california_map_preview.png';
         if (newType === 'charts') {
           previewUrl = '/storage/previews/financial_performance_preview.png';
+        }
+
+        // Try extracting preview from PPTX or use file directly if it is an image
+        const fileExt = path.extname(fileUrl).toLowerCase();
+        if (fileExt === '.pptx') {
+          const physicalPath = path.join(__dirname, 'public', fileUrl);
+          const extractedPreview = getPptxPreview(physicalPath);
+          if (extractedPreview) {
+            previewUrl = extractedPreview;
+          }
+        } else if (['.png', '.jpg', '.jpeg', '.svg'].includes(fileExt)) {
+          previewUrl = fileUrl;
         }
 
         const insertQuery = `

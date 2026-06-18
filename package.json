@@ -8,6 +8,7 @@
     "setup-db": "node setup-db.js"
   },
   "dependencies": {
+    "adm-zip": "^0.5.17",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "multer": "^2.1.1",
