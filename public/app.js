@@ -766,6 +766,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const catLabel = categoryLabels[cat] || 'Slide';
       const catColor = categoryColors[cat] || 'var(--color-primary)';
 
+      let mediaClass = 'slide-media';
+      if (cat === 'icons') mediaClass = 'icon-box';
+      else if (cat === 'scientific_images') mediaClass = 'sci-media';
+
       card.innerHTML = `
         <div class="card-checkbox-wrapper">
           <input type="checkbox" class="card-select-checkbox" data-id="${item.id}" data-type="${frontendCategory}">
@@ -780,7 +784,7 @@ document.addEventListener('DOMContentLoaded', () => {
             </button>
           </div>
         </div>
-        <div class="card-media slide-media">
+        <div class="card-media ${mediaClass}">
           <img src="${item.preview_image_url}" alt="${item.title}" onerror="this.src='https://placehold.co/600x338/f4f5f7/5e6c84?text=Preview'">
         </div>
         <div class="card-body">
