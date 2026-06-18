@@ -1138,19 +1138,37 @@ document.addEventListener('DOMContentLoaded', () => {
       modalDownloadBtn.href = item.pptx_file_url;
       modalDownloadText.textContent = 'Download PPTX Slide';
     } else if (category === 'icons') {
+      const title = item.name || item.title;
+      const fileUrl = item.file_url || item.pptx_file_url || item.preview_image_url;
+      
+      const rawFmt = (item.icon_class || '').trim();
+      const isLegacyClass = rawFmt.startsWith('fa-');
+      const formatLabel = isLegacyClass ? 'Icon' : (rawFmt || 'Icon');
+
+      let badgeColor = '#6554C0';
+      if (formatLabel === 'SVG') badgeColor = '#00B8D9';
+      else if (formatLabel === 'PNG') badgeColor = '#36B37E';
+      else if (['JPG','JPEG'].includes(formatLabel)) badgeColor = '#FF8B00';
+      else if (formatLabel === 'WEBP') badgeColor = '#6554C0';
+      else if (formatLabel === 'PDF') badgeColor = '#FF5630';
+
       modalPreviewPanel.className = 'modal-preview-panel icon-large';
-      modalPreviewPanel.innerHTML = `<img src="${item.file_url}" alt="${item.name}" onerror="this.src='https://placehold.co/200x200/f4f5f7/5e6c84?text=Icon'">`;
-      modalMetaRow.innerHTML = `<span class="badge type">Vector SVG Icon</span>`;
-      modalTitle.textContent = item.name;
+      modalPreviewPanel.innerHTML = `<img src="${fileUrl}" alt="${title}" onerror="this.src='https://placehold.co/200x200/f4f5f7/5e6c84?text=${formatLabel}'">`;
+      modalMetaRow.innerHTML = `<span class="badge type" style="background:${badgeColor};color:#fff;">${formatLabel}</span>`;
+      modalTitle.textContent = title;
       modalDescription.textContent = item.description;
-      modalDownloadBtn.href = item.file_url;
-      modalDownloadText.textContent = 'Download Vector SVG';
+      modalDownloadBtn.href = fileUrl;
+      modalDownloadText.textContent = `Download ${formatLabel}`;
     } else if (category === 'scientific') {
-      modalPreviewPanel.innerHTML = `<img src="${item.preview_image_url}" alt="${item.title}" onerror="this.src='https://placehold.co/600x338/f4f5f7/5e6c84?text=Diagram'">`;
+      const title = item.title || item.name;
+      const fileUrl = item.file_url || item.pptx_file_url || item.preview_image_url;
+      const previewUrl = item.preview_image_url || fileUrl;
+
+      modalPreviewPanel.innerHTML = `<img src="${previewUrl}" alt="${title}" onerror="this.src='https://placehold.co/600x338/f4f5f7/5e6c84?text=Diagram'">`;
       modalMetaRow.innerHTML = `<span class="badge type">Scientific Diagram</span>`;
-      modalTitle.textContent = item.title;
+      modalTitle.textContent = title;
       modalDescription.textContent = item.description;
-      modalDownloadBtn.href = item.file_url;
+      modalDownloadBtn.href = fileUrl;
       modalDownloadText.textContent = 'Download Scientific Diagram';
     }
 

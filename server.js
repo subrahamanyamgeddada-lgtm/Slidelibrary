@@ -205,7 +205,7 @@ app.get('/api/search', async (req, res) => {
     `;
 
     const searchIconsSQL = `
-      SELECT id, name AS title, '' AS state, 'icon' AS slide_type, keywords, description, file_url AS preview_image_url, file_url AS pptx_file_url, 'icons' AS _table,
+      SELECT id, name AS title, '' AS state, 'icon' AS slide_type, keywords, description, file_url AS preview_image_url, file_url AS pptx_file_url, 'icons' AS _table, icon_class,
         ts_rank(to_tsvector('english', coalesce(name,'') || ' ' || coalesce(keywords,'') || ' ' || coalesce(description,'')),
           plainto_tsquery('english', $1)) AS rank
       FROM icons
