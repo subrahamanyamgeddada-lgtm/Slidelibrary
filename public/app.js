@@ -1438,7 +1438,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const formData = new FormData();
-    const type = resourceType.value;
     formData.append('type', type);
     formData.append('title', resourceTitle.value.trim());
     formData.append('keywords', resourceKeywordsInput.value);
