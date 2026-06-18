@@ -352,6 +352,17 @@ app.post('/api/resources', upload.array('files', 50), async (req, res) => {
       const relativeFileUrl = `/storage/uploads/${file.filename}`;
 
       if (type === 'templates' || type === 'charts' || type === 'maps') {
+        const fileExt = path.extname(file.originalname).toLowerCase();
+        if (['.png', '.jpg', '.jpeg', '.svg'].includes(fileExt)) {
+          // Clean up physical file from disk
+          try {
+            fs.unlinkSync(file.path);
+          } catch (err) {
+            console.error('Error deleting invalid format file:', err.message);
+          }
+          return res.status(400).json({ error: 'You cannot upload images in this group. Please change the format to PPTX and then upload.' });
+        }
+
         let slideType = 'title';
         let previewUrl = '/storage/previews/california_map_preview.png'; // Default slide preview
 
@@ -364,7 +375,6 @@ app.post('/api/resources', upload.array('files', 50), async (req, res) => {
         }
 
         // Try extracting preview from PPTX or use file directly if it is an image
-        const fileExt = path.extname(file.filename).toLowerCase();
         if (fileExt === '.pptx') {
           const extractedPreview = getPptxPreview(file.path);
           if (extractedPreview) {

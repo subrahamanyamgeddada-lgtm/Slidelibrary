@@ -1034,9 +1034,35 @@ document.addEventListener('DOMContentLoaded', () => {
   let selectedKeywords = [];
   let selectedFiles = [];
 
+  // Validate files list based on selected category type (prevent images in PPTX groups)
+  function validateUploadedFiles(files, categoryType) {
+    const isPptxGroup = ['templates', 'charts', 'maps'].includes(categoryType);
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const fileExt = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+      const isImage = ['.png', '.jpg', '.jpeg', '.svg'].includes(fileExt);
+      if (isPptxGroup && isImage) {
+        return {
+          valid: false,
+          message: 'You cannot upload images in this group. Please change the format to PPTX and then upload.'
+        };
+      }
+    }
+    return { valid: true };
+  }
+
   // Handle files selection
   function handleFilesSelected(filesList) {
     if (!filesList || filesList.length === 0) return;
+    
+    const categoryType = resourceType.value;
+    const validation = validateUploadedFiles(filesList, categoryType);
+    if (!validation.valid) {
+      alert(validation.message);
+      fileInput.value = '';
+      return;
+    }
+    
     for (let i = 0; i < filesList.length; i++) {
       const file = filesList[i];
       if (!selectedFiles.some(f => f.name === file.name && f.size === file.size)) {
@@ -1271,6 +1297,16 @@ document.addEventListener('DOMContentLoaded', () => {
   // Toggle field visibility depending on selected type
   resourceType.addEventListener('change', () => {
     const type = resourceType.value;
+
+    // Check compatibility of already selected files if they exist
+    if (selectedFiles.length > 0) {
+      const validation = validateUploadedFiles(selectedFiles, type);
+      if (!validation.valid) {
+        alert(validation.message);
+        handleFileRemoved(); // reset files
+      }
+    }
+
     if (type === 'templates' || type === 'charts' || type === 'maps') {
       titleLabel.textContent = '2. Slide Title';
       resourceTitle.placeholder = 'Enter slide title...';
@@ -1385,6 +1421,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (selectedKeywords.length === 0) {
       resourceKeywordsInput.setCustomValidity('Please select at least one keyword.');
       addResourceForm.reportValidity();
+      return;
+    }
+
+    const type = resourceType.value;
+    const validation = validateUploadedFiles(selectedFiles, type);
+    if (!validation.valid) {
+      alert(validation.message);
       return;
     }
 
