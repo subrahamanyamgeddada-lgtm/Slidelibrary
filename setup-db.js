@@ -70,113 +70,122 @@ async function main() {
 
     console.log('Database tables verified/created successfully.');
 
-    // Truncate tables to ensure fresh seeds
-    await client.query('TRUNCATE TABLE slides RESTART IDENTITY CASCADE;');
-    await client.query('TRUNCATE TABLE icons RESTART IDENTITY CASCADE;');
-    await client.query('TRUNCATE TABLE scientific_images RESTART IDENTITY CASCADE;');
-    console.log('Tables truncated.');
+    // Check and seed slides if empty
+    const slideCountRes = await client.query('SELECT COUNT(*) FROM slides;');
+    if (parseInt(slideCountRes.rows[0].count) === 0) {
+      const seedSlides = `
+        INSERT INTO slides (title, state, slide_type, keywords, description, preview_image_url, pptx_file_url)
+        VALUES 
+        (
+          'California Geographic Market Segmentation Map', 
+          'California', 
+          'map', 
+          'california, map, geography, market, segmentation, west-coast', 
+          'A detailed geographical map of California showing key market segments, regional demographics, and growth hubs for Q3 strategy planning.',
+          '/storage/previews/california_map_preview.png',
+          '/storage/slides/california_map.pptx'
+        ),
+        (
+          'Q3 Financial Performance Summary', 
+          'Texas', 
+          '3-pointer', 
+          'texas, metrics, finance, quarterly, revenue, 3-pointer', 
+          'Three key takeaways highlighting Texas region revenue growth, operational cost reductions, and profit margins for the third quarter.',
+          '/storage/previews/financial_performance_preview.png',
+          '/storage/slides/q3_financial_summary.pptx'
+        ),
+        (
+          'Strategic Multi-State Expansion Guidelines', 
+          'National', 
+          'guidelines', 
+          'guidelines, strategy, expansion, national, policy, execution', 
+          'Step-by-step guidelines for deploying operations across new state borders, focusing on compliance, logistics, and regional leadership onboarding.',
+          '/storage/previews/expansion_guidelines_preview.png',
+          '/storage/slides/expansion_guidelines.pptx'
+        ),
+        (
+          'Modern Corporate Pitch Deck Template', 
+          'National', 
+          'title', 
+          'template, pitch deck, corporate, presentation, business', 
+          'A clean, modern corporate pitch deck slide template with customizable text boxes, grids, and premium formatting.',
+          '/storage/previews/california_map_preview.png',
+          '/storage/slides/california_map.pptx'
+        );
+      `;
+      await client.query(seedSlides);
+      console.log('Seeded "slides" table.');
+    } else {
+      console.log('"slides" table already has data. Skipping seed.');
+    }
 
-    // Seed slides
-    const seedSlides = `
-      INSERT INTO slides (title, state, slide_type, keywords, description, preview_image_url, pptx_file_url)
-      VALUES 
-      (
-        'California Geographic Market Segmentation Map', 
-        'California', 
-        'map', 
-        'california, map, geography, market, segmentation, west-coast', 
-        'A detailed geographical map of California showing key market segments, regional demographics, and growth hubs for Q3 strategy planning.',
-        '/storage/previews/california_map_preview.png',
-        '/storage/slides/california_map.pptx'
-      ),
-      (
-        'Q3 Financial Performance Summary', 
-        'Texas', 
-        '3-pointer', 
-        'texas, metrics, finance, quarterly, revenue, 3-pointer', 
-        'Three key takeaways highlighting Texas region revenue growth, operational cost reductions, and profit margins for the third quarter.',
-        '/storage/previews/financial_performance_preview.png',
-        '/storage/slides/q3_financial_summary.pptx'
-      ),
-      (
-        'Strategic Multi-State Expansion Guidelines', 
-        'National', 
-        'guidelines', 
-        'guidelines, strategy, expansion, national, policy, execution', 
-        'Step-by-step guidelines for deploying operations across new state borders, focusing on compliance, logistics, and regional leadership onboarding.',
-        '/storage/previews/expansion_guidelines_preview.png',
-        '/storage/slides/expansion_guidelines.pptx'
-      ),
-      (
-        'Modern Corporate Pitch Deck Template', 
-        'National', 
-        'title', 
-        'template, pitch deck, corporate, presentation, business', 
-        'A clean, modern corporate pitch deck slide template with customizable text boxes, grids, and premium formatting.',
-        '/storage/previews/california_map_preview.png',
-        '/storage/slides/california_map.pptx'
-      );
-    `;
-    await client.query(seedSlides);
-    console.log('Seeded "slides" table.');
+    // Check and seed icons if empty
+    const iconCountRes = await client.query('SELECT COUNT(*) FROM icons;');
+    if (parseInt(iconCountRes.rows[0].count) === 0) {
+      const seedIcons = `
+        INSERT INTO icons (name, keywords, icon_class, description, file_url)
+        VALUES
+        (
+          'Growth Chart Icon',
+          'growth, chart, bar, metrics, business, trend',
+          'fa-solid fa-chart-column',
+          'Jira styled professional growth chart vector icon representing positive trends and business metrics.',
+          '/storage/icons/growth_chart.svg'
+        ),
+        (
+          'DNA Helix Icon',
+          'dna, biology, science, medical, helix, health',
+          'fa-solid fa-dna',
+          'Medical and biological vector icon illustrating the double-helix DNA sequence for medical diagnostics.',
+          '/storage/icons/dna.svg'
+        ),
+        (
+          'Global Network Icon',
+          'global, network, world, cloud, tech, internet',
+          'fa-solid fa-earth-americas',
+          'Corporate global network mapping vector icon representing servers, tech connectivity, and international routing.',
+          '/storage/icons/global_network.svg'
+        );
+      `;
+      await client.query(seedIcons);
+      console.log('Seeded "icons" table.');
+    } else {
+      console.log('"icons" table already has data. Skipping seed.');
+    }
 
-    // Seed icons
-    const seedIcons = `
-      INSERT INTO icons (name, keywords, icon_class, description, file_url)
-      VALUES
-      (
-        'Growth Chart Icon',
-        'growth, chart, bar, metrics, business, trend',
-        'fa-solid fa-chart-column',
-        'Jira styled professional growth chart vector icon representing positive trends and business metrics.',
-        '/storage/icons/growth_chart.svg'
-      ),
-      (
-        'DNA Helix Icon',
-        'dna, biology, science, medical, helix, health',
-        'fa-solid fa-dna',
-        'Medical and biological vector icon illustrating the double-helix DNA sequence for medical diagnostics.',
-        '/storage/icons/dna.svg'
-      ),
-      (
-        'Global Network Icon',
-        'global, network, world, cloud, tech, internet',
-        'fa-solid fa-earth-americas',
-        'Corporate global network mapping vector icon representing servers, tech connectivity, and international routing.',
-        '/storage/icons/global_network.svg'
-      );
-    `;
-    await client.query(seedIcons);
-    console.log('Seeded "icons" table.');
-
-    // Seed scientific images
-    const seedSciImages = `
-      INSERT INTO scientific_images (title, keywords, description, preview_image_url, file_url)
-      VALUES
-      (
-        'Anatomy of a Human Cell',
-        'cell, biology, anatomy, human, science, nucleus, mitochondria',
-        'Detailed high-resolution educational scientific diagram mapping human cell structures, organelles, membranes, and golgi bodies.',
-        '/storage/scientific/human_cell.png',
-        '/storage/scientific/human_cell.png'
-      ),
-      (
-        'Planetary Orbits of Our Solar System',
-        'solar system, planet, space, astronomy, science, orbits, sun',
-        'Educational planetary orbit diagram tracing paths, astronomical distances, planetary sizing, and the main asteroid belt.',
-        '/storage/scientific/solar_system.png',
-        '/storage/scientific/solar_system.png'
-      ),
-      (
-        'Brain Neural Networks & Synaptic Connections',
-        'brain, neuron, synapse, neuroscience, science, cognition, pathways',
-        'Neuroscience infographic detailing the structure of synaptic gaps, axonal neurotransmitters, action potentials, and cerebral network pathways.',
-        '/storage/scientific/brain_neural.png',
-        '/storage/scientific/brain_neural.png'
-      );
-    `;
-    await client.query(seedSciImages);
-    console.log('Seeded "scientific_images" table.');
+    // Check and seed scientific images if empty
+    const sciCountRes = await client.query('SELECT COUNT(*) FROM scientific_images;');
+    if (parseInt(sciCountRes.rows[0].count) === 0) {
+      const seedSciImages = `
+        INSERT INTO scientific_images (title, keywords, description, preview_image_url, file_url)
+        VALUES
+        (
+          'Anatomy of a Human Cell',
+          'cell, biology, anatomy, human, science, nucleus, mitochondria',
+          'Detailed high-resolution educational scientific diagram mapping human cell structures, organelles, membranes, and golgi bodies.',
+          '/storage/scientific/human_cell.png',
+          '/storage/scientific/human_cell.png'
+        ),
+        (
+          'Planetary Orbits of Our Solar System',
+          'solar system, planet, space, astronomy, science, orbits, sun',
+          'Educational planetary orbit diagram tracing paths, astronomical distances, planetary sizing, and the main asteroid belt.',
+          '/storage/scientific/solar_system.png',
+          '/storage/scientific/solar_system.png'
+        ),
+        (
+          'Brain Neural Networks & Synaptic Connections',
+          'brain, neuron, synapse, neuroscience, science, cognition, pathways',
+          'Neuroscience infographic detailing the structure of synaptic gaps, axonal neurotransmitters, action potentials, and cerebral network pathways.',
+          '/storage/scientific/brain_neural.png',
+          '/storage/scientific/brain_neural.png'
+        );
+      `;
+      await client.query(seedSciImages);
+      console.log('Seeded "scientific_images" table.');
+    } else {
+      console.log('"scientific_images" table already has data. Skipping seed.');
+    }
 
     console.log('All schema setup and seeding completed successfully!');
   } catch (err) {

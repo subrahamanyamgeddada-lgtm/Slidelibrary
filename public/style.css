@@ -40,10 +40,11 @@ body {
   background-color: var(--bg-light);
   color: var(--text-dark);
   font-family: var(--font-family);
-  min-height: 100vh;
+  height: 100vh;
   display: flex;
   flex-direction: column;
   font-size: 14px;
+  overflow: hidden;
 }
 
 /* Scrollbars */
@@ -239,6 +240,7 @@ body {
 .app-layout {
   display: flex;
   flex: 1;
+  overflow: hidden;
 }
 
 /* Sidebar Navigation */
