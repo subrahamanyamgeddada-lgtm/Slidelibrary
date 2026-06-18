@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SlideLibrary | Slide & Infographic Repository</title>
+  <meta name="description" content="A clean, searchable repository for PowerPoint slides, vector icons, and scientific diagrams.">
+  <!-- FontAwesome Icons for UI -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Clean Top Navigation Bar -->
+  <header class="app-topnav">
+    <div class="topnav-left">
+      <div class="app-logo">
+        <i class="fa-solid fa-layer-group logo-mark"></i>
+        <span class="brand-app">Slide<span>Library</span></span>
+      </div>
+    </div>
+    
+    <!-- Central Search Bar inside the Header -->
+    <div class="topnav-center">
+      <div class="search-wrapper">
+        <i class="fa-solid fa-magnifying-glass search-icon"></i>
+        <input 
+          type="text" 
+          id="global-search" 
+          placeholder="Search templates, charts, maps, icons..."
+          autocomplete="off"
+        >
+        <button id="clear-search-btn" class="clear-btn" style="display: none;">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div id="search-spinner" class="spinner" style="display: none;"></div>
+    </div>
+
+    <div class="topnav-right">
+      <div class="status-badge" id="db-status-badge">
+        <span class="status-dot green"></span>
+        <span>Connected</span>
+      </div>
+      <!-- User Profile & Account Controls -->
+      <div class="user-profile-menu" id="user-profile-menu">
+        <div class="profile-trigger" id="profile-trigger">
+          <span class="account-name" id="account-name-display">John Doe</span>
+          <div class="avatar" id="avatar-display">JD</div>
+          <i class="fa-solid fa-chevron-down profile-arrow"></i>
+        </div>
+        
+        <!-- Dropdown menu -->
+        <div class="profile-dropdown" id="profile-dropdown" style="display: none;">
+          <div class="dropdown-header">
+            <h4 id="dropdown-user-name">John Doe</h4>
+            <p id="dropdown-user-email">john.doe@example.com</p>
+          </div>
+          <div class="dropdown-divider"></div>
+          <button class="dropdown-item" id="auth-action-btn">
+            <i class="fa-solid fa-right-from-bracket"></i>
+            <span>Log Out</span>
+          </button>
+        </div>
+      </div>
+      
+      <!-- Logged Out State Button -->
+      <button class="login-btn-header" id="header-login-btn" style="display: none;">
+        <i class="fa-solid fa-right-to-bracket"></i>
+        <span>Log In</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Workspace Layout (Sidebar + Content) -->
+  <div class="app-layout">
+    <!-- Clean Left Sidebar Menu -->
+    <aside class="app-sidebar">
+      <div class="sidebar-menu">
+        <button class="menu-item active" data-category="templates">
+          <i class="fa-solid fa-desktop icon-slides"></i>
+          <span>Templates & Slides</span>
+        </button>
+        <button class="menu-item" data-category="charts">
+          <i class="fa-solid fa-chart-pie icon-charts"></i>
+          <span>Charts & Diagrams</span>
+        </button>
+        <button class="menu-item" data-category="maps">
+          <i class="fa-solid fa-map-location-dot icon-maps"></i>
+          <span>Maps & Flags</span>
+        </button>
+        <button class="menu-item" data-category="icons">
+          <i class="fa-solid fa-circle-nodes icon-icons"></i>
+          <span>Vector Icons</span>
+        </button>
+        <button class="menu-item" data-category="scientific">
+          <i class="fa-solid fa-flask icon-scientific"></i>
+          <span>Scientific Diagrams</span>
+        </button>
+      </div>
+
+      <!-- Add Resource Button Section -->
+      <div class="sidebar-action-container">
+        <button class="add-resource-btn" id="open-add-resource-btn">
+          <i class="fa-solid fa-plus"></i>
+          <span>Add Resource</span>
+        </button>
+      </div>
+      
+      <div class="sidebar-footer">
+      </div>
+    </aside>
+
+    <!-- Content Workspace -->
+    <main class="app-content">
+      <!-- Category Title & Action Row -->
+      <div class="content-header">
+        <div class="title-section">
+          <h2 id="category-title">Templates & Slides</h2>
+          <span class="item-count-badge" id="item-count">0 items</span>
+        </div>
+        <div class="action-section">
+        </div>
+      </div>
+
+      <!-- Quick Filter Tag chips -->
+      <div class="filters-row">
+        <span class="filters-label">Suggestions:</span>
+        <div class="suggestion-chips" id="suggestions-container">
+          <!-- Dynamically populated suggestion chips -->
+        </div>
+      </div>
+
+      <!-- Dynamic Grid Workspace -->
+      <div id="cards-grid" class="cards-grid">
+        <!-- Slide, Icon, or Image cards inserted here -->
+      </div>
+
+      <!-- Empty State -->
+      <div id="empty-state" class="empty-state" style="display: none;">
+        <div class="empty-illustration">
+          <i class="fa-solid fa-magnifying-glass"></i>
+        </div>
+        <h3>No assets found</h3>
+        <p>No results matched your search term "<strong id="searched-term-display"></strong>". Try searching for keywords like "map", "dna", or "chart".</p>
+        <button id="reset-search-btn" class="btn-primary">Clear search filters</button>
+      </div>
+    </main>
+  </div>
+
+  <!-- Large View Lightbox Modal -->
+  <div id="large-view-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-container">
+      <button class="modal-close-btn" id="modal-close-btn" title="Close large view">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+      <div class="modal-content">
+        <div class="modal-preview-panel" id="modal-preview-panel">
+          <!-- Large image or SVG preview will be injected here -->
+        </div>
+        <div class="modal-details-panel">
+          <div class="modal-meta-row" id="modal-meta-row">
+            <!-- Badges -->
+          </div>
+          <h3 id="modal-title">Asset Title</h3>
+          <p id="modal-description">Asset Description</p>
+          <div class="modal-tags" id="modal-tags">
+            <!-- Tag elements -->
+          </div>
+          <div class="modal-actions">
+            <a href="#" id="modal-download-btn" class="btn-primary" download>
+              <i class="fa-solid fa-download"></i>
+              <span id="modal-download-text">Download Asset</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Resource Form Modal (Clean 3-Question form with File Dropzone) -->
+  <div id="add-resource-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-container form-modal">
+      <button class="modal-close-btn" id="close-add-resource-btn" title="Close Form">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+      <div class="form-modal-content">
+        <h3>Add New Resource</h3>
+        <form id="add-resource-form" onsubmit="return false;">
+          <!-- 1. Resource Type -->
+          <div class="form-group">
+            <label for="resource-type">1. Resource Type</label>
+            <select id="resource-type" name="type" required>
+              <option value="templates">PowerPoint Slide (Templates)</option>
+              <option value="charts">Charts & Diagrams Slide</option>
+              <option value="maps">Maps & Flags Slide</option>
+              <option value="icons">Vector Icon</option>
+              <option value="scientific">Scientific Diagram</option>
+            </select>
+          </div>
+          
+          <!-- 2. Title / Name -->
+          <div class="form-group">
+            <label for="resource-title" id="title-label">2. Slide Title</label>
+            <input type="text" id="resource-title" name="title" required placeholder="Enter slide title...">
+          </div>
+
+          <!-- 3. Tap-to-select Keywords -->
+          <div class="form-group">
+            <label class="keywords-header">3. Tap to Select Keywords (Select at least one):</label>
+            <div class="keyword-selector-chips" id="keyword-picker-container">
+              <span class="p-chip" data-keyword="map">map</span>
+              <span class="p-chip" data-keyword="california">california</span>
+              <span class="p-chip" data-keyword="texas">texas</span>
+              <span class="p-chip" data-keyword="guidelines">guidelines</span>
+              <span class="p-chip" data-keyword="finance">finance</span>
+              <span class="p-chip" data-keyword="metrics">metrics</span>
+              <span class="p-chip" data-keyword="growth">growth</span>
+              <span class="p-chip" data-keyword="biology">biology</span>
+              <span class="p-chip" data-keyword="science">science</span>
+              <span class="p-chip" data-keyword="global">global</span>
+              <span class="p-chip" data-keyword="tech">tech</span>
+            </div>
+            <!-- Add custom keyword input group -->
+            <div class="custom-keyword-wrapper" style="margin-top: 12px; display: flex; gap: 8px; max-width: 350px;">
+              <input type="text" id="custom-keyword-input" placeholder="Add custom keyword..." style="flex: 1; padding: 6px 10px; font-size: 13px; border: 1px solid var(--border-color); border-radius: var(--radius); outline: none;">
+              <button type="button" id="add-custom-keyword-btn" class="btn-primary" style="padding: 6px 14px; font-size: 13px; min-height: auto; width: auto; font-weight: 600;">
+                <i class="fa-solid fa-plus"></i> Add
+              </button>
+            </div>
+            <!-- Hidden keywords input -->
+            <input type="hidden" id="resource-keywords" name="keywords" required>
+          </div>
+
+          <!-- 4. Drag & Drop File Upload Zone -->
+          <div class="form-group">
+            <label>4. Upload or Drop File Here</label>
+            <div class="file-dropzone" id="file-dropzone">
+              <i class="fa-solid fa-cloud-arrow-up dropzone-icon"></i>
+              <p class="dropzone-text" id="dropzone-prompt">Drag & drop your file, or <span class="browse-link">browse files</span></p>
+              <input type="file" id="file-input" name="file" required style="display: none;" accept=".pptx,.svg,.png,.jpg,.jpeg">
+              <div id="file-selected-info" class="file-selected-info" style="display: none;">
+                <i class="fa-solid fa-file-circle-check"></i>
+                <span id="selected-filename">filename.pptx</span>
+                <button type="button" id="remove-file-btn" class="remove-file-btn" title="Remove file">
+                  <i class="fa-solid fa-trash-can"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button type="button" id="cancel-add-resource-btn" class="btn-primary secondary">Cancel</button>
+            <button type="submit" class="btn-primary">Save Resource</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="app-footer">
+    <p>&copy; 2026 SlideLibrary. All rights reserved.</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
