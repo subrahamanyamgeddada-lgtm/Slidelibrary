@@ -663,12 +663,14 @@ app.post('/api/resources', upload.array('files', 50), async (req, res) => {
         const fileId = blobResult.rows[0].id;
         const fileUrl = `/api/files/${fileId}`;
         
-        let previewUrl = fileUrl; // We will use the same url, or if PDF, it handles it
+        const isPdf = fileExt === '.pdf';
+        const pdfFileUrl = isPdf ? fileUrl : '';
+        const pptxFileUrl = isPdf ? '' : fileUrl;
 
         const result = await db.query(
           `INSERT INTO slide_decks (title, keywords, description, pdf_file_url, pptx_file_url)
            VALUES ($1, $2, $3, $4, $5) RETURNING *;`,
-          [title, keywords, 'Custom uploaded slide deck.', previewUrl, fileUrl]
+          [title, keywords, 'Custom uploaded slide deck.', pdfFileUrl, pptxFileUrl]
         );
         console.log('Successfully inserted slide deck resource:', result.rows[0].title);
         insertedResources.push(result.rows[0]);
