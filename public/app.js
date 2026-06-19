@@ -758,7 +758,7 @@ document.addEventListener('DOMContentLoaded', () => {
       scientific_images: 'Scientific',
       videos_2d: '2D Video',
       videos_3d: '3D Video',
-      slide_decks: 'Slide Deck'
+      slide_decks: 'Old Deck'
     };
     const categoryColors = {
       slides: 'var(--color-primary)',
@@ -1672,8 +1672,8 @@ document.addEventListener('DOMContentLoaded', () => {
       titleLabel.textContent = '2. Video Title';
       resourceTitle.placeholder = 'Enter video title...';
     } else if (type === 'slide_decks') {
-      titleLabel.textContent = '2. Slide Deck Title';
-      resourceTitle.placeholder = 'Enter slide deck title...';
+      titleLabel.textContent = '2. Old Deck Title';
+      resourceTitle.placeholder = 'Enter old deck title...';
     }
   });
 
