@@ -185,6 +185,84 @@ app.get('/api/scientific_images', async (req, res) => {
   }
 });
 
+// API Endpoint to get 2D Videos
+app.get('/api/videos_2d', async (req, res) => {
+  const queryText = req.query.q;
+  try {
+    if (!queryText || queryText.trim() === '') {
+      const result = await db.query('SELECT * FROM videos_2d ORDER BY id ASC');
+      return res.json(result.rows);
+    }
+    const searchSQL = `
+      SELECT *, 
+        ts_rank(
+          to_tsvector('english', coalesce(title, '') || ' ' || coalesce(keywords, '') || ' ' || coalesce(description, '')), 
+          plainto_tsquery('english', $1)
+        ) as rank
+      FROM videos_2d
+      WHERE to_tsvector('english', coalesce(title, '') || ' ' || coalesce(keywords, '') || ' ' || coalesce(description, '')) @@ plainto_tsquery('english', $1)
+      ORDER BY rank DESC, id ASC;
+    `;
+    const result = await db.query(searchSQL, [queryText.trim()]);
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error fetching 2d videos:', err);
+    res.status(500).json({ error: 'An error occurred while querying 2d videos' });
+  }
+});
+
+// API Endpoint to get 3D Videos
+app.get('/api/videos_3d', async (req, res) => {
+  const queryText = req.query.q;
+  try {
+    if (!queryText || queryText.trim() === '') {
+      const result = await db.query('SELECT * FROM videos_3d ORDER BY id ASC');
+      return res.json(result.rows);
+    }
+    const searchSQL = `
+      SELECT *, 
+        ts_rank(
+          to_tsvector('english', coalesce(title, '') || ' ' || coalesce(keywords, '') || ' ' || coalesce(description, '')), 
+          plainto_tsquery('english', $1)
+        ) as rank
+      FROM videos_3d
+      WHERE to_tsvector('english', coalesce(title, '') || ' ' || coalesce(keywords, '') || ' ' || coalesce(description, '')) @@ plainto_tsquery('english', $1)
+      ORDER BY rank DESC, id ASC;
+    `;
+    const result = await db.query(searchSQL, [queryText.trim()]);
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error fetching 3d videos:', err);
+    res.status(500).json({ error: 'An error occurred while querying 3d videos' });
+  }
+});
+
+// API Endpoint to get Slide Decks
+app.get('/api/slide_decks', async (req, res) => {
+  const queryText = req.query.q;
+  try {
+    if (!queryText || queryText.trim() === '') {
+      const result = await db.query('SELECT * FROM slide_decks ORDER BY id ASC');
+      return res.json(result.rows);
+    }
+    const searchSQL = `
+      SELECT *, 
+        ts_rank(
+          to_tsvector('english', coalesce(title, '') || ' ' || coalesce(keywords, '') || ' ' || coalesce(description, '')), 
+          plainto_tsquery('english', $1)
+        ) as rank
+      FROM slide_decks
+      WHERE to_tsvector('english', coalesce(title, '') || ' ' || coalesce(keywords, '') || ' ' || coalesce(description, '')) @@ plainto_tsquery('english', $1)
+      ORDER BY rank DESC, id ASC;
+    `;
+    const result = await db.query(searchSQL, [queryText.trim()]);
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error fetching slide decks:', err);
+    res.status(500).json({ error: 'An error occurred while querying slide decks' });
+  }
+});
+
 // API Endpoint for Global Search across ALL tables (slides, icons, scientific_images)
 app.get('/api/search', async (req, res) => {
   const queryText = req.query.q;
@@ -222,16 +300,49 @@ app.get('/api/search', async (req, res) => {
         @@ plainto_tsquery('english', $1);
     `;
 
-    const [slidesRes, iconsRes, sciRes] = await Promise.all([
+    const searchVideos2dSQL = `
+      SELECT id, title, '' AS state, 'video_2d' AS slide_type, keywords, description, file_url AS preview_image_url, file_url AS pptx_file_url, 'videos_2d' AS _table,
+        ts_rank(to_tsvector('english', coalesce(title,'') || ' ' || coalesce(keywords,'') || ' ' || coalesce(description,'')),
+          plainto_tsquery('english', $1)) AS rank
+      FROM videos_2d
+      WHERE to_tsvector('english', coalesce(title,'') || ' ' || coalesce(keywords,'') || ' ' || coalesce(description,''))
+        @@ plainto_tsquery('english', $1);
+    `;
+
+    const searchVideos3dSQL = `
+      SELECT id, title, '' AS state, 'video_3d' AS slide_type, keywords, description, file_url AS preview_image_url, file_url AS pptx_file_url, 'videos_3d' AS _table,
+        ts_rank(to_tsvector('english', coalesce(title,'') || ' ' || coalesce(keywords,'') || ' ' || coalesce(description,'')),
+          plainto_tsquery('english', $1)) AS rank
+      FROM videos_3d
+      WHERE to_tsvector('english', coalesce(title,'') || ' ' || coalesce(keywords,'') || ' ' || coalesce(description,''))
+        @@ plainto_tsquery('english', $1);
+    `;
+
+    const searchSlideDecksSQL = `
+      SELECT id, title, '' AS state, 'slide_deck' AS slide_type, keywords, description, pptx_file_url AS preview_image_url, pptx_file_url AS pptx_file_url, 'slide_decks' AS _table,
+        ts_rank(to_tsvector('english', coalesce(title,'') || ' ' || coalesce(keywords,'') || ' ' || coalesce(description,'')),
+          plainto_tsquery('english', $1)) AS rank
+      FROM slide_decks
+      WHERE to_tsvector('english', coalesce(title,'') || ' ' || coalesce(keywords,'') || ' ' || coalesce(description,''))
+        @@ plainto_tsquery('english', $1);
+    `;
+
+    const [slidesRes, iconsRes, sciRes, v2dRes, v3dRes, decksRes] = await Promise.all([
       db.query(searchSlidesSQL, [q]),
       db.query(searchIconsSQL, [q]),
-      db.query(searchSciSQL, [q])
+      db.query(searchSciSQL, [q]),
+      db.query(searchVideos2dSQL, [q]),
+      db.query(searchVideos3dSQL, [q]),
+      db.query(searchSlideDecksSQL, [q])
     ]);
 
     const combined = [
       ...slidesRes.rows,
       ...iconsRes.rows,
-      ...sciRes.rows
+      ...sciRes.rows,
+      ...v2dRes.rows,
+      ...v3dRes.rows,
+      ...decksRes.rows
     ].sort((a, b) => b.rank - a.rank);
 
     res.json(combined);
@@ -511,6 +622,41 @@ app.post('/api/resources', upload.array('files', 50), async (req, res) => {
         );
         console.log('Successfully inserted scientific resource:', result.rows[0].title);
         insertedResources.push(result.rows[0]);
+      } else if (type === 'videos_2d' || type === 'videos_3d') {
+        const blobResult = await db.query(
+          'INSERT INTO file_blobs (filename, mimetype, data) VALUES ($1, $2, $3) RETURNING id',
+          [file.originalname, mimeType, file.buffer]
+        );
+        const fileId = blobResult.rows[0].id;
+        const fileUrl = `/api/files/${fileId}`;
+        
+        const tableName = type === 'videos_2d' ? 'videos_2d' : 'videos_3d';
+        const desc = type === 'videos_2d' ? 'Custom uploaded 2D video.' : 'Custom uploaded 3D video.';
+
+        const result = await db.query(
+          `INSERT INTO ${tableName} (title, keywords, description, file_url)
+           VALUES ($1, $2, $3, $4) RETURNING *;`,
+          [title, keywords, desc, fileUrl]
+        );
+        console.log(`Successfully inserted ${type} resource:`, result.rows[0].title);
+        insertedResources.push(result.rows[0]);
+      } else if (type === 'slide_decks') {
+        const blobResult = await db.query(
+          'INSERT INTO file_blobs (filename, mimetype, data) VALUES ($1, $2, $3) RETURNING id',
+          [file.originalname, mimeType, file.buffer]
+        );
+        const fileId = blobResult.rows[0].id;
+        const fileUrl = `/api/files/${fileId}`;
+        
+        let previewUrl = fileUrl; // We will use the same url, or if PDF, it handles it
+
+        const result = await db.query(
+          `INSERT INTO slide_decks (title, keywords, description, pdf_file_url, pptx_file_url)
+           VALUES ($1, $2, $3, $4, $5) RETURNING *;`,
+          [title, keywords, 'Custom uploaded slide deck.', previewUrl, fileUrl]
+        );
+        console.log('Successfully inserted slide deck resource:', result.rows[0].title);
+        insertedResources.push(result.rows[0]);
       }
     }
 
@@ -533,6 +679,12 @@ app.delete('/api/resources/:type/:id', async (req, res) => {
     tableName = 'icons';
   } else if (type === 'scientific') {
     tableName = 'scientific_images';
+  } else if (type === 'videos_2d') {
+    tableName = 'videos_2d';
+  } else if (type === 'videos_3d') {
+    tableName = 'videos_3d';
+  } else if (type === 'slide_decks') {
+    tableName = 'slide_decks';
   } else {
     return res.status(400).json({ error: 'Invalid resource type' });
   }
@@ -562,11 +714,22 @@ app.put('/api/resources/:type/:id', async (req, res) => {
     return res.status(400).json({ error: 'Missing required update parameters' });
   }
 
-  const oldIsSlide = (oldType === 'templates' || oldType === 'charts' || oldType === 'maps');
-  const newIsSlide = (newType === 'templates' || newType === 'charts' || newType === 'maps');
+  const mapTypeToTable = (t) => {
+    if (['templates', 'charts', 'maps'].includes(t)) return 'slides';
+    if (t === 'icons') return 'icons';
+    if (t === 'scientific') return 'scientific_images';
+    if (t === 'videos_2d') return 'videos_2d';
+    if (t === 'videos_3d') return 'videos_3d';
+    if (t === 'slide_decks') return 'slide_decks';
+    return null;
+  };
 
-  const oldTable = oldIsSlide ? 'slides' : (oldType === 'icons' ? 'icons' : 'scientific_images');
-  const newTable = newIsSlide ? 'slides' : (newType === 'icons' ? 'icons' : 'scientific_images');
+  const oldTable = mapTypeToTable(oldType);
+  const newTable = mapTypeToTable(newType);
+
+  if (!oldTable || !newTable) {
+    return res.status(400).json({ error: 'Invalid resource type' });
+  }
 
   try {
     if (oldTable === newTable) {
@@ -590,8 +753,9 @@ app.put('/api/resources/:type/:id', async (req, res) => {
         `;
         result = await db.query(query, [title, keywords, id]);
       } else {
+        // scientific_images, videos_2d, videos_3d, slide_decks all have title, keywords
         const query = `
-          UPDATE scientific_images 
+          UPDATE ${oldTable} 
           SET title = $1, keywords = $2
           WHERE id = $3
           RETURNING *;
@@ -622,8 +786,8 @@ app.put('/api/resources/:type/:id', async (req, res) => {
       let fileUrl = '';
       if (oldTable === 'slides') {
         fileUrl = oldRecord.pptx_file_url;
-      } else if (oldTable === 'icons') {
-        fileUrl = oldRecord.file_url;
+      } else if (oldTable === 'slide_decks') {
+        fileUrl = oldRecord.pptx_file_url;
       } else {
         fileUrl = oldRecord.file_url;
       }
@@ -693,6 +857,35 @@ app.put('/api/resources/:type/:id', async (req, res) => {
           keywords,
           'Custom migrated scientific diagram.',
           fileUrl, // Use the same file URL for preview
+          fileUrl
+        ];
+        const insertRes = await db.query(insertQuery, values);
+        insertedRecord = insertRes.rows[0];
+      } else if (newTable === 'videos_2d' || newTable === 'videos_3d') {
+        const insertQuery = `
+          INSERT INTO ${newTable} (title, keywords, description, file_url)
+          VALUES ($1, $2, $3, $4)
+          RETURNING *;
+        `;
+        const values = [
+          title,
+          keywords,
+          newTable === 'videos_2d' ? 'Custom migrated 2D video.' : 'Custom migrated 3D video.',
+          fileUrl
+        ];
+        const insertRes = await db.query(insertQuery, values);
+        insertedRecord = insertRes.rows[0];
+      } else if (newTable === 'slide_decks') {
+        const insertQuery = `
+          INSERT INTO slide_decks (title, keywords, description, pdf_file_url, pptx_file_url)
+          VALUES ($1, $2, $3, $4, $5)
+          RETURNING *;
+        `;
+        const values = [
+          title,
+          keywords,
+          'Custom migrated slide deck.',
+          fileUrl, // using the same fileUrl as fallback
           fileUrl
         ];
         const insertRes = await db.query(insertQuery, values);
@@ -876,6 +1069,37 @@ async function initDatabase() {
         description TEXT NOT NULL,
         preview_image_url VARCHAR(255) NOT NULL,
         file_url VARCHAR(255) NOT NULL
+      );
+    `);
+
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS videos_2d (
+        id SERIAL PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        keywords TEXT NOT NULL,
+        description TEXT NOT NULL,
+        file_url VARCHAR(255) NOT NULL
+      );
+    `);
+
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS videos_3d (
+        id SERIAL PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        keywords TEXT NOT NULL,
+        description TEXT NOT NULL,
+        file_url VARCHAR(255) NOT NULL
+      );
+    `);
+
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS slide_decks (
+        id SERIAL PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        keywords TEXT NOT NULL,
+        description TEXT NOT NULL,
+        pdf_file_url VARCHAR(255) NOT NULL,
+        pptx_file_url VARCHAR(255) NOT NULL
       );
     `);
 

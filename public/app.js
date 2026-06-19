@@ -75,7 +75,10 @@ document.addEventListener('DOMContentLoaded', () => {
     charts: ['chart', 'diagram', 'metrics', 'finance', 'revenue', '3-pointer', 'guidelines'],
     maps: ['map', 'california', 'texas', 'geography', 'national'],
     icons: ['growth', 'chart', 'dna', 'science', 'global', 'tech'],
-    scientific: ['cell', 'biology', 'solar system', 'space', 'brain', 'neuron']
+    scientific: ['cell', 'biology', 'solar system', 'space', 'brain', 'neuron'],
+    videos_2d: ['animation', 'explainer', 'marketing', 'tutorial', '2d'],
+    videos_3d: ['render', 'animation', 'product', 'tour', '3d'],
+    slide_decks: ['pitch', 'company', 'sales', 'presentation', 'deck']
   };
 
   // Maps category tabs to backend API URLs
@@ -84,7 +87,10 @@ document.addEventListener('DOMContentLoaded', () => {
     charts: '/api/slides',
     maps: '/api/slides',
     icons: '/api/icons',
-    scientific: '/api/scientific_images'
+    scientific: '/api/scientific_images',
+    videos_2d: '/api/videos_2d',
+    videos_3d: '/api/videos_3d',
+    slide_decks: '/api/slide_decks'
   };
 
   // Initial setup
@@ -639,6 +645,12 @@ document.addEventListener('DOMContentLoaded', () => {
       categoryTitle.textContent = 'Vector Icons';
     } else if (category === 'scientific') {
       categoryTitle.textContent = 'Scientific Diagrams';
+    } else if (category === 'videos_2d') {
+      categoryTitle.textContent = '2D Videos';
+    } else if (category === 'videos_3d') {
+      categoryTitle.textContent = '3D Videos';
+    } else if (category === 'slide_decks') {
+      categoryTitle.textContent = 'Slide Decks';
     }
 
     // Render suggestion chips
@@ -743,12 +755,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const categoryLabels = {
       slides: 'Slide',
       icons: 'Icon',
-      scientific_images: 'Scientific'
+      scientific_images: 'Scientific',
+      videos_2d: '2D Video',
+      videos_3d: '3D Video',
+      slide_decks: 'Slide Deck'
     };
     const categoryColors = {
       slides: 'var(--color-primary)',
       icons: '#00B8D9',
-      scientific_images: '#36B37E'
+      scientific_images: '#36B37E',
+      videos_2d: '#FF5630',
+      videos_3d: '#6554C0',
+      slide_decks: '#FFAB00'
     };
 
     items.forEach(item => {
@@ -760,6 +778,9 @@ document.addEventListener('DOMContentLoaded', () => {
       let frontendCategory = 'templates';
       if (cat === 'icons') frontendCategory = 'icons';
       else if (cat === 'scientific_images') frontendCategory = 'scientific';
+      else if (cat === 'videos_2d') frontendCategory = 'videos_2d';
+      else if (cat === 'videos_3d') frontendCategory = 'videos_3d';
+      else if (cat === 'slide_decks') frontendCategory = 'slide_decks';
       else if (item.slide_type === 'map') frontendCategory = 'maps';
       else if (item.slide_type === '3-pointer' || item.slide_type === 'guidelines') frontendCategory = 'charts';
 
@@ -769,6 +790,8 @@ document.addEventListener('DOMContentLoaded', () => {
       let mediaClass = 'slide-media';
       if (cat === 'icons') mediaClass = 'icon-box';
       else if (cat === 'scientific_images') mediaClass = 'sci-media';
+      else if (cat === 'videos_2d' || cat === 'videos_3d') mediaClass = 'video-media';
+      else if (cat === 'slide_decks') mediaClass = 'deck-media';
 
       card.innerHTML = `
         <div class="card-checkbox-wrapper">
@@ -999,6 +1022,53 @@ document.addEventListener('DOMContentLoaded', () => {
             </a>
           </div>
         `;
+      } else if (category === 'videos_2d' || category === 'videos_3d') {
+        // Render Video Card
+        const badgeLabel = category === 'videos_2d' ? '2D Video' : '3D Video';
+        card.innerHTML = cardHTML + `
+          <div class="card-media video-media" style="background:#000;display:flex;align-items:center;justify-content:center;position:relative;">
+            <video src="${item.file_url}" style="width:100%;height:100%;object-fit:cover;" muted loop onmouseover="this.play()" onmouseout="this.pause()"></video>
+            <i class="fa-solid fa-play" style="position:absolute;color:#fff;font-size:32px;opacity:0.8;pointer-events:none;"></i>
+          </div>
+          <div class="card-body">
+            <div class="card-meta">
+              <span class="badge type">${badgeLabel}</span>
+            </div>
+            <h4 class="card-title">${item.title}</h4>
+            <div class="card-tags">
+              ${renderKeywordTags(item.keywords)}
+            </div>
+          </div>
+          <div class="card-footer">
+            <a href="${item.file_url}" class="btn-primary" download>
+              <i class="fa-solid fa-video"></i>
+              <span>Download Video</span>
+            </a>
+          </div>
+        `;
+      } else if (category === 'slide_decks') {
+        // Render Slide Deck Card
+        card.innerHTML = cardHTML + `
+          <div class="card-media deck-media" style="background:#DEEBFF;display:flex;align-items:center;justify-content:center;flex-direction:column;color:var(--primary-blue);">
+            <i class="fa-solid fa-layer-group" style="font-size:48px;margin-bottom:8px;"></i>
+            <span style="font-weight:bold;font-size:12px;">SLIDE DECK</span>
+          </div>
+          <div class="card-body">
+            <div class="card-meta">
+              <span class="badge type">Deck</span>
+            </div>
+            <h4 class="card-title">${item.title}</h4>
+            <div class="card-tags">
+              ${renderKeywordTags(item.keywords)}
+            </div>
+          </div>
+          <div class="card-footer">
+            <a href="${item.pptx_file_url}" class="btn-primary" download>
+              <i class="fa-solid fa-file-powerpoint"></i>
+              <span>Download PPTX</span>
+            </a>
+          </div>
+        `;
       }
 
       // Bind 3-dots menu handlers
@@ -1170,6 +1240,34 @@ document.addEventListener('DOMContentLoaded', () => {
       modalDescription.textContent = item.description;
       modalDownloadBtn.href = fileUrl;
       modalDownloadText.textContent = 'Download Scientific Diagram';
+    } else if (category === 'videos_2d' || category === 'videos_3d') {
+      const badgeLabel = category === 'videos_2d' ? '2D Video' : '3D Video';
+      modalPreviewPanel.innerHTML = `
+        <video controls autoplay style="width:100%;height:100%;max-height:600px;background:#000;">
+          <source src="${item.file_url}" type="video/mp4">
+          Your browser does not support the video tag.
+        </video>
+      `;
+      modalMetaRow.innerHTML = `<span class="badge type">${badgeLabel}</span>`;
+      modalTitle.textContent = item.title;
+      modalDescription.textContent = item.description;
+      modalDownloadBtn.href = item.file_url;
+      modalDownloadText.textContent = 'Download Video';
+    } else if (category === 'slide_decks') {
+      // In the implementation plan, we noted PPTX slide-by-slide is hard.
+      // We will embed the PDF if available, else a placeholder.
+      const pdfUrl = item.pdf_file_url || item.pptx_file_url;
+      
+      modalPreviewPanel.innerHTML = `
+        <object data="${pdfUrl}" type="application/pdf" width="100%" height="600px">
+          <p>Unable to display PDF file. <a href="${pdfUrl}">Download</a> instead.</p>
+        </object>
+      `;
+      modalMetaRow.innerHTML = `<span class="badge type">Slide Deck</span>`;
+      modalTitle.textContent = item.title;
+      modalDescription.textContent = item.description;
+      modalDownloadBtn.href = item.pptx_file_url;
+      modalDownloadText.textContent = 'Download PPTX Deck';
     }
 
     modalTags.innerHTML = renderKeywordTags(item.keywords);
