@@ -664,8 +664,8 @@ app.post('/api/resources', upload.array('files', 50), async (req, res) => {
         const fileUrl = `/api/files/${fileId}`;
         
         const isPdf = fileExt === '.pdf';
-        const pdfFileUrl = isPdf ? fileUrl : '';
-        const pptxFileUrl = isPdf ? '' : fileUrl;
+        const pdfFileUrl = isPdf ? fileUrl : null;
+        const pptxFileUrl = isPdf ? null : fileUrl;
 
         const result = await db.query(
           `INSERT INTO slide_decks (title, keywords, description, pdf_file_url, pptx_file_url)
@@ -1051,8 +1051,8 @@ app.post('/api/resources/bulk-move', async (req, res) => {
             );
           } else if (newTable === 'slide_decks') {
             const isPdf = fileUrl.toLowerCase().endsWith('.pdf');
-            const pdfFileUrl = isPdf ? fileUrl : '';
-            const pptxFileUrl = isPdf ? '' : fileUrl;
+            const pdfFileUrl = isPdf ? fileUrl : null;
+            const pptxFileUrl = isPdf ? null : fileUrl;
             await db.query(
                `INSERT INTO slide_decks (title, keywords, description, pdf_file_url, pptx_file_url)
                 VALUES ($1, $2, $3, $4, $5)`,
@@ -1150,8 +1150,8 @@ async function initDatabase() {
         title VARCHAR(255) NOT NULL,
         keywords TEXT NOT NULL,
         description TEXT NOT NULL,
-        pdf_file_url VARCHAR(255) NOT NULL,
-        pptx_file_url VARCHAR(255) NOT NULL
+        pdf_file_url VARCHAR(255),
+        pptx_file_url VARCHAR(255)
       );
     `);
 
