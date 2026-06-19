@@ -928,6 +928,9 @@ document.addEventListener('DOMContentLoaded', () => {
             <button class="card-dropdown-item edit-item-btn">
               <i class="fa-solid fa-pen-to-square"></i> Edit
             </button>
+            <button class="card-dropdown-item move-item-btn">
+              <i class="fa-solid fa-arrows-to-dot"></i> Move
+            </button>
             <button class="card-dropdown-item delete-item-btn">
               <i class="fa-solid fa-trash-can"></i> Delete
             </button>
@@ -1104,6 +1107,17 @@ document.addEventListener('DOMContentLoaded', () => {
         currentOpenCategory = category;
         
         openEditResourceModal();
+      });
+
+      // Move item handler
+      card.querySelector('.move-item-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        dropdownMenu.style.display = 'none';
+        
+        currentOpenItem = item;
+        currentOpenCategory = category;
+        
+        openMoveResourceModal();
       });
 
       // Delete item handler
@@ -1820,6 +1834,95 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (err) {
       console.error('Submission error:', err);
       alert('Error submitting form. Please verify network and server.');
+    }
+  });
+
+  // Move Resource Modal DOM Queries
+  const moveResourceModal = document.getElementById('move-resource-modal');
+  const closeMoveResourceBtn = document.getElementById('close-move-resource-btn');
+  const cancelMoveResourceBtn = document.getElementById('cancel-move-resource-btn');
+  const moveResourceForm = document.getElementById('move-resource-form');
+  const moveResourceIdInput = document.getElementById('move-resource-id');
+  const moveResourceOldTypeInput = document.getElementById('move-resource-old-type');
+  const moveResourceTargetTypeSelect = document.getElementById('move-resource-target-type');
+
+  function openMoveResourceModal() {
+    if (!currentOpenItem || !currentOpenCategory) return;
+    
+    moveResourceIdInput.value = currentOpenItem.id;
+    moveResourceOldTypeInput.value = currentOpenCategory;
+    moveResourceTargetTypeSelect.value = currentOpenCategory; // pre-select current category
+    
+    closeLargeView();
+    moveResourceModal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeMoveResourceModal() {
+    moveResourceModal.style.display = 'none';
+    document.body.style.overflow = 'auto';
+  }
+
+  closeMoveResourceBtn.addEventListener('click', closeMoveResourceModal);
+  cancelMoveResourceBtn.addEventListener('click', closeMoveResourceModal);
+
+  moveResourceModal.addEventListener('click', (e) => {
+    if (e.target === moveResourceModal) {
+      closeMoveResourceModal();
+    }
+  });
+
+  // Single resource Move form submit handler
+  moveResourceForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const id = moveResourceIdInput.value;
+    const oldType = moveResourceOldTypeInput.value;
+    const newType = moveResourceTargetTypeSelect.value;
+
+    if (oldType === newType) {
+      closeMoveResourceModal();
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/resources/${oldType}/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        // We reuse the existing PUT route by sending same title and keywords but changing the category type
+        body: JSON.stringify({
+          type: newType,
+          title: currentOpenItem.title || currentOpenItem.name,
+          keywords: currentOpenItem.keywords
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Move operation failed');
+      }
+
+      const resJson = await response.json();
+      if (resJson.success) {
+        closeMoveResourceModal();
+        
+        // Switch tab to the destination folder
+        activeCategory = newType;
+        sidebarMenuItems.forEach(item => {
+          if (item.getAttribute('data-category') === activeCategory) {
+            item.classList.add('active');
+          } else {
+            item.classList.remove('active');
+          }
+        });
+        
+        updateCategoryView(activeCategory);
+      } else {
+        alert('Could not move resource.');
+      }
+    } catch (err) {
+      console.error('Move submission error:', err);
+      alert('Error moving resource. Please verify network and database connectivity.');
     }
   });
 

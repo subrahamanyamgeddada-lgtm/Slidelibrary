@@ -430,6 +430,45 @@
     </div>
   </div>
 
+  <!-- Move Resource Category Form Modal -->
+  <div id="move-resource-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-container form-modal" style="max-width: 450px;">
+      <button class="modal-close-btn" id="close-move-resource-btn" title="Close Form">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+      <div class="form-modal-content">
+        <h3>Move Resource to Category</h3>
+        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">Select the target group/folder where you want to move this resource:</p>
+        <form id="move-resource-form" onsubmit="return false;">
+          <!-- Hidden inputs to track ID and old type -->
+          <input type="hidden" id="move-resource-id">
+          <input type="hidden" id="move-resource-old-type">
+          
+          <div class="form-group">
+            <label for="move-resource-target-type">Select Destination Category</label>
+            <select id="move-resource-target-type" name="type" required style="width: 100%; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: var(--radius); outline: none;">
+              <option value="templates">Templates & Slides</option>
+              <option value="charts">Charts & Diagrams</option>
+              <option value="maps">Maps & Flags</option>
+              <option value="icons">Vector Icons</option>
+              <option value="scientific">Scientific Diagrams</option>
+              <option value="videos_2d">2D Videos</option>
+              <option value="videos_3d">3D Videos</option>
+              <option value="slide_decks">Slide Decks</option>
+            </select>
+          </div>
+          
+          <div class="form-actions" style="margin-top: 24px;">
+            <button type="button" id="cancel-move-resource-btn" class="btn-primary secondary">Cancel</button>
+            <button type="submit" class="btn-primary">
+              <i class="fa-solid fa-arrows-to-dot"></i> Move Resource
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <!-- Footer -->
   <footer class="app-footer">
     <p>&copy; 2026 SlideLibrary. All rights reserved.</p>
