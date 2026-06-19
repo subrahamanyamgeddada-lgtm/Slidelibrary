@@ -56,6 +56,21 @@ app.get('/api/files/:id', async (req, res) => {
   }
 });
 
+// Alias endpoint that includes filename parameter for third-party tools requiring extension (e.g. Office Web Viewer)
+app.get('/api/files/:id/:filename', async (req, res) => {
+  try {
+    const result = await db.query('SELECT filename, mimetype, data FROM file_blobs WHERE id = $1', [req.params.id]);
+    if (result.rowCount === 0) return res.status(404).send('File not found');
+    const { filename, mimetype, data } = result.rows[0];
+    res.set('Content-Type', mimetype);
+    res.set('Content-Disposition', `inline; filename="${encodeURIComponent(filename)}"`);
+    res.send(data);
+  } catch (err) {
+    console.error('Error serving file from DB:', err);
+    res.status(500).send('Error retrieving file');
+  }
+});
+
 // Serve preview images from PostgreSQL
 app.get('/api/previews/:id', async (req, res) => {
   try {

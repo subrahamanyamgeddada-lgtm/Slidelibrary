@@ -1254,19 +1254,33 @@ document.addEventListener('DOMContentLoaded', () => {
       modalDownloadBtn.href = item.file_url;
       modalDownloadText.textContent = 'Download Video';
     } else if (category === 'slide_decks') {
-      // In the implementation plan, we noted PPTX slide-by-slide is hard.
-      // We will embed the PDF if available, else a placeholder.
-      const pdfUrl = item.pdf_file_url || item.pptx_file_url;
+      const fileUrl = item.pptx_file_url || item.pdf_file_url;
+      const isPdf = fileUrl.toLowerCase().endsWith('.pdf') || (item.pdf_file_url && item.pdf_file_url.includes('mimetype=application%2Fpdf'));
       
-      modalPreviewPanel.innerHTML = `
-        <object data="${pdfUrl}" type="application/pdf" width="100%" height="600px">
-          <p>Unable to display PDF file. <a href="${pdfUrl}">Download</a> instead.</p>
-        </object>
-      `;
+      let embedHtml = '';
+      if (isPdf) {
+        embedHtml = `
+          <iframe src="${fileUrl}" width="100%" height="600px" style="border:none;"></iframe>
+        `;
+      } else {
+        // Build absolute URL for the Office viewer to fetch
+        const hostUrl = window.location.origin;
+        // Make sure URL contains extension so Microsoft office viewer detects it correctly
+        const docUrl = `${hostUrl}${fileUrl}/presentation.pptx`;
+        const officeViewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(docUrl)}`;
+        
+        embedHtml = `
+          <iframe src="${officeViewerUrl}" width="100%" height="600px" frameborder="0" style="border:none;">
+            This browser does not support embedding PPTX slides. Please download to view.
+          </iframe>
+        `;
+      }
+      
+      modalPreviewPanel.innerHTML = embedHtml;
       modalMetaRow.innerHTML = `<span class="badge type">Slide Deck</span>`;
       modalTitle.textContent = item.title;
       modalDescription.textContent = item.description;
-      modalDownloadBtn.href = item.pptx_file_url;
+      modalDownloadBtn.href = item.pptx_file_url || item.pdf_file_url;
       modalDownloadText.textContent = 'Download PPTX Deck';
     }
 
@@ -1357,6 +1371,18 @@ document.addEventListener('DOMContentLoaded', () => {
         return {
           valid: false,
           message: 'You cannot upload images in this group. Please change the format to PPTX and then upload.'
+        };
+      }
+      if (categoryType === 'slide_decks' && !['.pptx', '.pdf'].includes(fileExt)) {
+        return {
+          valid: false,
+          message: 'Only PPTX and PDF files are allowed for Slide Decks.'
+        };
+      }
+      if ((categoryType === 'videos_2d' || categoryType === 'videos_3d') && !['.mp4', '.avi', '.mov', '.webm', '.ogg'].includes(fileExt)) {
+        return {
+          valid: false,
+          message: 'Only video files (MP4, AVI, MOV, WEBM, OGG) are allowed in video groups.'
         };
       }
     }
@@ -1622,14 +1648,18 @@ document.addEventListener('DOMContentLoaded', () => {
     if (type === 'templates' || type === 'charts' || type === 'maps') {
       titleLabel.textContent = '2. Slide Title';
       resourceTitle.placeholder = 'Enter slide title...';
-    } else {
-      if (type === 'icons') {
-        titleLabel.textContent = '2. Icon Name';
-        resourceTitle.placeholder = 'Enter icon name...';
-      } else {
-        titleLabel.textContent = '2. Image Title';
-        resourceTitle.placeholder = 'Enter scientific image title...';
-      }
+    } else if (type === 'icons') {
+      titleLabel.textContent = '2. Icon Name';
+      resourceTitle.placeholder = 'Enter icon name...';
+    } else if (type === 'scientific') {
+      titleLabel.textContent = '2. Image Title';
+      resourceTitle.placeholder = 'Enter scientific image title...';
+    } else if (type === 'videos_2d' || type === 'videos_3d') {
+      titleLabel.textContent = '2. Video Title';
+      resourceTitle.placeholder = 'Enter video title...';
+    } else if (type === 'slide_decks') {
+      titleLabel.textContent = '2. Slide Deck Title';
+      resourceTitle.placeholder = 'Enter slide deck title...';
     }
   });
 
