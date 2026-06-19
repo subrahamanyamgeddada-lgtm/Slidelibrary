@@ -939,6 +939,12 @@ app.post('/api/resources/bulk-delete', async (req, res) => {
         tableName = 'icons';
       } else if (item.type === 'scientific') {
         tableName = 'scientific_images';
+      } else if (item.type === 'videos_2d') {
+        tableName = 'videos_2d';
+      } else if (item.type === 'videos_3d') {
+        tableName = 'videos_3d';
+      } else if (item.type === 'slide_decks') {
+        tableName = 'slide_decks';
       } else {
         throw new Error(`Invalid resource type: ${item.type}`);
       }
@@ -960,31 +966,43 @@ app.post('/api/resources/bulk-move', async (req, res) => {
     return res.status(400).json({ error: 'Missing required parameters' });
   }
 
-  const newIsSlide = (targetType === 'templates' || targetType === 'charts' || targetType === 'maps');
-  const newTable = newIsSlide ? 'slides' : (targetType === 'icons' ? 'icons' : 'scientific_images');
+  const mapTypeToTable = (t) => {
+    if (['templates', 'charts', 'maps'].includes(t)) return 'slides';
+    if (t === 'icons') return 'icons';
+    if (t === 'scientific') return 'scientific_images';
+    if (t === 'videos_2d') return 'videos_2d';
+    if (t === 'videos_3d') return 'videos_3d';
+    if (t === 'slide_decks') return 'slide_decks';
+    return null;
+  };
+
+  const newTable = mapTypeToTable(targetType);
+  if (!newTable) {
+    return res.status(400).json({ error: 'Invalid target resource type' });
+  }
 
   try {
     await db.query('BEGIN');
 
     for (const item of resources) {
-      const oldIsSlide = (item.type === 'templates' || item.type === 'charts' || item.type === 'maps');
-      const oldTable = oldIsSlide ? 'slides' : (item.type === 'icons' ? 'icons' : 'scientific_images');
+      const oldTable = mapTypeToTable(item.type);
+      if (!oldTable) continue;
 
       if (oldTable === newTable) {
-        // Simple update
+        // Simple update within slides types
         if (oldTable === 'slides') {
           const slideType = targetType === 'charts' ? '3-pointer' : (targetType === 'maps' ? 'map' : 'title');
           await db.query('UPDATE slides SET slide_type = $1 WHERE id = $2', [slideType, item.id]);
         }
-        // If moving icons to icons or scientific to scientific, nothing changes
       } else {
         // Migration required
         const oldSelect = await db.query(`SELECT * FROM ${oldTable} WHERE id = $1`, [item.id]);
         if (oldSelect.rowCount > 0) {
           const record = oldSelect.rows[0];
+          
           let fileUrl = '';
-          if (oldTable === 'slides') {
-            fileUrl = record.pptx_file_url;
+          if (oldTable === 'slides' || oldTable === 'slide_decks') {
+            fileUrl = record.pptx_file_url || record.pdf_file_url;
           } else {
             fileUrl = record.file_url;
           }
@@ -1007,21 +1025,38 @@ app.post('/api/resources/bulk-move', async (req, res) => {
             }
 
             await db.query(
-              `INSERT INTO slides (title, state, slide_type, keywords, description, preview_image_url, pptx_file_url)
-               VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-              [record.title || record.name, 'National', slideType, record.keywords, record.description || 'Custom migrated slide.', previewUrl, fileUrl]
+               `INSERT INTO slides (title, state, slide_type, keywords, description, preview_image_url, pptx_file_url)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+               [record.title || record.name, 'National', slideType, record.keywords, record.description || 'Custom migrated slide.', previewUrl, fileUrl]
             );
           } else if (newTable === 'icons') {
+            const fileExt = path.extname(fileUrl).toLowerCase();
+            const iconFileExt = fileExt.replace('.', '').toUpperCase() || 'FILE';
             await db.query(
-              `INSERT INTO icons (name, keywords, icon_class, description, file_url)
-               VALUES ($1, $2, $3, $4, $5)`,
-              [record.title || record.name, record.keywords, 'fa-solid fa-shapes', record.description || 'Custom migrated icon.', fileUrl]
+               `INSERT INTO icons (name, keywords, icon_class, description, file_url)
+                VALUES ($1, $2, $3, $4, $5)`,
+               [record.title || record.name, record.keywords, iconFileExt, record.description || 'Custom migrated icon.', fileUrl]
             );
           } else if (newTable === 'scientific_images') {
             await db.query(
-              `INSERT INTO scientific_images (title, keywords, description, preview_image_url, file_url)
-               VALUES ($1, $2, $3, $4, $5)`,
-              [record.title || record.name, record.keywords, record.description || 'Custom migrated scientific diagram.', fileUrl, fileUrl]
+               `INSERT INTO scientific_images (title, keywords, description, preview_image_url, file_url)
+                VALUES ($1, $2, $3, $4, $5)`,
+               [record.title || record.name, record.keywords, record.description || 'Custom migrated scientific diagram.', fileUrl, fileUrl]
+            );
+          } else if (newTable === 'videos_2d' || newTable === 'videos_3d') {
+            await db.query(
+               `INSERT INTO ${newTable} (title, keywords, description, file_url)
+                VALUES ($1, $2, $3, $4)`,
+               [record.title || record.name, record.keywords, newTable === 'videos_2d' ? 'Custom migrated 2D video.' : 'Custom migrated 3D video.', fileUrl]
+            );
+          } else if (newTable === 'slide_decks') {
+            const isPdf = fileUrl.toLowerCase().endsWith('.pdf');
+            const pdfFileUrl = isPdf ? fileUrl : '';
+            const pptxFileUrl = isPdf ? '' : fileUrl;
+            await db.query(
+               `INSERT INTO slide_decks (title, keywords, description, pdf_file_url, pptx_file_url)
+                VALUES ($1, $2, $3, $4, $5)`,
+               [record.title || record.name, record.keywords, record.description || 'Custom migrated slide deck.', pdfFileUrl, pptxFileUrl]
             );
           }
 
