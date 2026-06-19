@@ -502,6 +502,16 @@ body {
   background-color: var(--bg-light);
 }
 
+/* Video media container dimensions */
+.card-media.video-media {
+  height: 200px;
+}
+
+/* Deck media container dimensions */
+.card-media.deck-media {
+  height: 200px;
+}
+
 /* Icon Box Preview Specific */
 .card-media.icon-box {
   aspect-ratio: auto;

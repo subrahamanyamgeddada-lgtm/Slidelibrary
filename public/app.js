@@ -1027,7 +1027,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const badgeLabel = category === 'videos_2d' ? '2D Video' : '3D Video';
         card.innerHTML = cardHTML + `
           <div class="card-media video-media" style="background:#000;display:flex;align-items:center;justify-content:center;position:relative;">
-            <video src="${item.file_url}" style="width:100%;height:100%;object-fit:cover;" muted loop onmouseover="this.play()" onmouseout="this.pause()"></video>
+            <video src="${item.file_url}" preload="metadata" style="width:100%;height:100%;min-height:200px;object-fit:cover;" muted loop onmouseover="this.play()" onmouseout="this.pause()"></video>
             <i class="fa-solid fa-play" style="position:absolute;color:#fff;font-size:32px;opacity:0.8;pointer-events:none;"></i>
           </div>
           <div class="card-body">
